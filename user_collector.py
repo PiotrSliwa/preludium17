@@ -1,13 +1,13 @@
 import GetOldTweets3 as got
 from pymongo import MongoClient
+from database import get_local_database
 
 
 class TweetCollection:
-    def __init__(self, username, mongo_url, mongo_database):
+    def __init__(self, username):
         self.username = username
         self.processed_tweet_ids = set()
-        self.client = MongoClient(mongo_url)
-        self.db = self.client[mongo_database]
+        self.db = get_local_database()
         self.db_collection = self.db.tweets
 
     def save(self, tweet):
@@ -25,8 +25,8 @@ class TweetCollection:
             raise Exception('No new tweets added!')
 
 
-def collect(username, mongo_url, mongo_database):
-    tweet_collection = TweetCollection(username, mongo_url, mongo_database)
+def collect(username):
+    tweet_collection = TweetCollection(username)
     tweet_criteria = got.manager.TweetCriteria().setUsername(username)
     got.manager.TweetManager.getTweets(tweet_criteria,
                                        debug=True,
@@ -37,5 +37,5 @@ def collect(username, mongo_url, mongo_database):
 
 if __name__ == '__main__':
     username = 'heroicgg'
-    processed_tweet_ids = collect(username, 'mongodb://localhost:27017/', 'preludium')
+    processed_tweet_ids = collect(username)
     print(f'Finished successfully. Processed {len(processed_tweet_ids)} tweets.')
