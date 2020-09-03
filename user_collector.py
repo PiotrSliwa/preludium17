@@ -36,6 +36,6 @@ def collect(username, mongo_url, mongo_database):
 
 
 if __name__ == '__main__':
-    username = 'TeamLiquid'
+    username = 'heroicgg'
     processed_tweet_ids = collect(username, 'mongodb://localhost:27017/', 'preludium')
     print(f'Finished successfully. Processed {len(processed_tweet_ids)} tweets.')
