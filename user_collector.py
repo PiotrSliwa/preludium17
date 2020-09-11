@@ -25,15 +25,15 @@ class TweetCollection:
         current_len = len(self.processed_tweet_ids)
         if previous_len == current_len:
             raise Exception('No new tweets added!')
-        print(f'Added ${current_len - previous_len} tweets.')
+        print(f'Processed {current_len - previous_len} tweet(s). Total: {len(self.processed_tweet_ids)}')
 
 
 def collect(username):
     tweet_collection = TweetCollection(username)
     tweet_criteria = got.manager.TweetCriteria().setUsername(username)
     got.manager.TweetManager.getTweets(tweet_criteria,
-                                       debug=True,
-                                       bufferLength=1,
+                                       debug=False,
+                                       # bufferLength=1,
                                        receiveBuffer=tweet_collection.add_all)
     return tweet_collection.processed_tweet_ids
 
@@ -48,9 +48,14 @@ def most_popular_referenced_users():
         if tweet is None:
             yield username
 
+def get(username):
+    print(f'Getting tweets of user {username}')
+    processed_tweet_ids = collect(username)
+    print(f'Finished successfully. Processed {len(processed_tweet_ids)} tweets.')
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Retrieve user tweets.')
-    parser.add_argument('action', nargs=1, help='next (lists the most popular referenced user without tweets in the database), get (retrieves tweets of a specified user)')
+    parser.add_argument('action', nargs=1, help='list (lists the most popular referenced user without tweets in the database), get (retrieves tweets of a specified user), next (get tweets of the first user from the list)')
     parser.add_argument('user', nargs='?')
     args = parser.parse_args()
     action = args.action[0]
@@ -58,11 +63,15 @@ if __name__ == '__main__':
         if args.user is None:
             parser.print_help()
         else:
-            username = args.user[0]
-            processed_tweet_ids = collect(username)
-            print(f'Finished successfully. Processed {len(processed_tweet_ids)} tweets.')
+            username = args.user
+            get(username)
+    elif action == 'list':
+        users = most_popular_referenced_users()
+        for i in range(3):
+            print(next(users))
     elif action == 'next':
         users = most_popular_referenced_users()
-        print(next(users))
+        username = next(users)
+        get(username)
     else:
         parser.print_help()
