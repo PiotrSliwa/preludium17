@@ -1,5 +1,7 @@
+import argparse
+
 import GetOldTweets3 as got
-from pymongo import MongoClient
+
 from database import get_local_database
 
 
@@ -23,6 +25,7 @@ class TweetCollection:
         current_len = len(self.processed_tweet_ids)
         if previous_len == current_len:
             raise Exception('No new tweets added!')
+        print(f'Added ${current_len - previous_len} tweets.')
 
 
 def collect(username):
@@ -35,7 +38,31 @@ def collect(username):
     return tweet_collection.processed_tweet_ids
 
 
+def most_popular_referenced_users():
+    db = get_local_database()
+    candidates = db.reference_popularity.find({'_id': {'$regex': '^@'}}).sort('popularity', -1)
+    tweets = db.tweets
+    for candidate in candidates:
+        username = candidate['_id'].replace('@', '')
+        tweet = tweets.find_one({'username': username})
+        if tweet is None:
+            yield username
+
 if __name__ == '__main__':
-    username = 'heroicgg'
-    processed_tweet_ids = collect(username)
-    print(f'Finished successfully. Processed {len(processed_tweet_ids)} tweets.')
+    parser = argparse.ArgumentParser(description='Retrieve user tweets.')
+    parser.add_argument('action', nargs=1, help='next (lists the most popular referenced user without tweets in the database), get (retrieves tweets of a specified user)')
+    parser.add_argument('user', nargs='?')
+    args = parser.parse_args()
+    action = args.action[0]
+    if action == 'get':
+        if args.user is None:
+            parser.print_help()
+        else:
+            username = args.user[0]
+            processed_tweet_ids = collect(username)
+            print(f'Finished successfully. Processed {len(processed_tweet_ids)} tweets.')
+    elif action == 'next':
+        users = most_popular_referenced_users()
+        print(next(users))
+    else:
+        parser.print_help()
