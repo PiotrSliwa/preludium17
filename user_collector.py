@@ -1,8 +1,14 @@
 import argparse
+from datetime import datetime
 
 import GetOldTweets3 as got
 
 from database import get_local_database
+
+
+def log(msg):
+    now = datetime.now()
+    print(f'{now.strftime("%d/%m/%Y %H:%M:%S")} - {msg}')
 
 
 class TweetCollection:
@@ -25,7 +31,7 @@ class TweetCollection:
         current_len = len(self.processed_tweet_ids)
         if previous_len == current_len:
             raise Exception('No new tweets added!')
-        print(f'Processed {current_len - previous_len} tweet(s). Total: {len(self.processed_tweet_ids)}')
+        log(f'Processed {current_len - previous_len} tweet(s). Total: {len(self.processed_tweet_ids)}')
 
 
 def collect(username):
@@ -49,9 +55,9 @@ def most_popular_referenced_users():
             yield username
 
 def get(username):
-    print(f'Getting tweets of user {username}')
+    log(f'Getting tweets of user {username}')
     processed_tweet_ids = collect(username)
-    print(f'Finished successfully. Processed {len(processed_tweet_ids)} tweets.')
+    log(f'Finished successfully. Processed {len(processed_tweet_ids)} tweets.')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Retrieve user tweets.')
