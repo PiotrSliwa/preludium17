@@ -44,12 +44,20 @@ def collect(username):
     return tweet_collection.processed_tweet_ids
 
 
+def get_ignored_users():
+    with open('.usercollectorignore') as f:
+        return f.readlines()
+
+
 def most_popular_referenced_users():
     db = get_local_database()
     candidates = db.reference_popularity.find({'_id': {'$regex': '^@'}}).sort('popularity', -1)
+    ignored_users = get_ignored_users()
     tweets = db.tweets
     for candidate in candidates:
         username = candidate['_id'].replace('@', '')
+        if username in ignored_users:
+            continue
         tweet = tweets.find_one({'username': username})
         if tweet is None:
             yield username
