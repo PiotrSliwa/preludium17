@@ -46,7 +46,7 @@ def collect(username):
 
 def get_ignored_users():
     with open('.usercollectorignore') as f:
-        return f.readlines()
+        return list(map(str.strip, f.readlines()))
 
 
 def most_popular_referenced_users():
