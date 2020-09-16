@@ -3,7 +3,7 @@ from datetime import datetime
 
 import GetOldTweets3 as got
 
-from database import get_local_database
+from database import get_local_database, materialize_views
 
 
 def log(msg):
@@ -62,14 +62,17 @@ def most_popular_referenced_users():
         if tweet is None:
             yield username
 
+
 def get(username):
     log(f'Getting tweets of user {username}')
     processed_tweet_ids = collect(username)
     log(f'Finished successfully. Processed {len(processed_tweet_ids)} tweets.')
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Retrieve user tweets.')
-    parser.add_argument('action', nargs=1, help='list (lists the most popular referenced user without tweets in the database), get (retrieves tweets of a specified user), next (get tweets of the first user from the list)')
+    parser.add_argument('action', nargs=1,
+                        help='list (lists the most popular referenced user without tweets in the database), get (retrieves tweets of a specified user), next (get tweets of the first user from the list)')
     parser.add_argument('user', nargs='?')
     args = parser.parse_args()
     action = args.action[0]
@@ -86,6 +89,10 @@ if __name__ == '__main__':
     elif action == 'next':
         users = most_popular_referenced_users()
         username = next(users)
-        get(username)
+        try:
+            get(username)
+        finally:
+            print('Materializing views...')
+            materialize_views()
     else:
         parser.print_help()

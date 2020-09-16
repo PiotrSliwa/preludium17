@@ -8,8 +8,9 @@ def get_local_database():
     return client['preludium']
 
 
-def materialize_information_flow():
+def materialize_views():
     db = get_local_database()
+
     db.tweets.aggregate([
         {
             '$set': {
@@ -85,6 +86,25 @@ def materialize_information_flow():
         }
     ])
 
+    db.materialized_information_flow.aggregate([
+        {
+            '$group': {
+                '_id': '$reference',
+                'focals': {
+                    '$addToSet': '$focal'
+                }
+            }
+        }, {
+            '$set': {
+                'popularity': {
+                    '$size': '$focals'
+                }
+            }
+        }, {
+            '$out': 'materialized_reference_popularity'
+        }
+    ])
+
 
 class Database:
     db = get_local_database()
@@ -96,11 +116,11 @@ class Database:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Manage the database.')
-    parser.add_argument('action', nargs=1, help='possible actions: materialize_information_flow')
+    parser.add_argument('action', nargs=1, help='materialize (materialized all views dependent on tweets)')
     args = parser.parse_args()
     action = args.action[0]
-    if action == 'materialize_information_flow':
-        materialize_information_flow()
+    if action == 'materialize':
+        materialize_views()
         print('Done.')
     else:
         parser.print_help()
