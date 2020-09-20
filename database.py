@@ -106,14 +106,6 @@ def materialize_views():
     ])
 
 
-class Database:
-    db = get_local_database()
-
-    def most_popular_nodes(self, num=1):
-        collection = self.db['most_popular_nodes']
-        return collection.find(sort=[('knownByCount', -1)], limit=num)
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Manage the database.')
     parser.add_argument('action', nargs=1, help='materialize (materialized all views dependent on tweets)')
