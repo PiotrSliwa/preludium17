@@ -106,6 +106,18 @@ def materialize_views():
     ])
 
 
+def get_reference_flows(db):
+    reference_flows = {}
+    information_flow = db.materialized_information_flow.find().sort('date', 1)
+    for row in information_flow:
+        focal = row['focal']
+        reference = row['reference']
+        if not focal in reference_flows:
+            reference_flows[focal] = []
+        reference_flows[focal].append(reference)
+    return reference_flows
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Manage the database.')
     parser.add_argument('action', nargs=1, help='materialize (materialized all views dependent on tweets)')
