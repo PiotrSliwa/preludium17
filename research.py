@@ -33,7 +33,7 @@ def calculate_vectors(reference_id, calculate_feature_intensities):
             limited_reference_flow = reference_flow
 
         # Exclude the currently investigated reference
-        limited_reference_flow = filter(lambda x: x != reference_id, limited_reference_flow)
+        limited_reference_flow = list(filter(lambda x: x != reference_id, limited_reference_flow))
 
         # Feature selection algorithm (key is the feature and value is the intensity)
         features[focal] = calculate_feature_intensities(limited_reference_flow)
@@ -81,11 +81,22 @@ class FeatureIntensitiesModel:
         return dict([(reference, 1) for reference in reference_flow])
 
     @staticmethod
-    def count_occurrence(reference_flow):
+    def count_occurrences(reference_flow):
         result = {}
         for reference in reference_flow:
             current_count = result.setdefault(reference, 0)
             result[reference] = current_count + 1
+        return result
+
+    @staticmethod
+    def linear_fading_occurences(reference_flow):
+        result = {}
+        step = 1.0 / len(reference_flow)
+        intensity = step
+        for reference in reference_flow:
+            current_intensity = result.setdefault(reference, 0.0)
+            result[reference] = current_intensity + intensity
+            intensity += step
         return result
 
 
@@ -125,6 +136,7 @@ for reference in references:
     print('==========')
     print(i)
     benchmark.run(reference, FeatureIntensitiesModel.mere_occurrence)
-    benchmark.run(reference, FeatureIntensitiesModel.count_occurrence)
+    benchmark.run(reference, FeatureIntensitiesModel.count_occurrences)
+    benchmark.run(reference, FeatureIntensitiesModel.linear_fading_occurences)
     benchmark.print_summary()
     i += 1
