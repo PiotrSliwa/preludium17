@@ -89,7 +89,7 @@ class FeatureIntensitiesModel:
         return result
 
     @staticmethod
-    def linear_fading_occurences(reference_flow):
+    def linear_fading_summing(reference_flow):
         result = {}
         step = 1.0 / len(reference_flow)
         intensity = step
@@ -97,6 +97,37 @@ class FeatureIntensitiesModel:
             current_intensity = result.setdefault(reference, 0.0)
             result[reference] = current_intensity + intensity
             intensity += step
+        return result
+
+    @staticmethod
+    def linear_fading_most_recent(reference_flow):
+        result = {}
+        step = 1.0 / len(reference_flow)
+        intensity = step
+        for reference in reference_flow:
+            result[reference] = intensity
+            intensity += step
+        return result
+
+    @staticmethod
+    def smoothstep_fading_summing(reference_flow):
+        result = {}
+        step = 1.0 / len(reference_flow)
+        x = step
+        for reference in reference_flow:
+            current_intensity = result.setdefault(reference, 0.0)
+            result[reference] = current_intensity + 3 * x**2 - 2 * x**2
+            x += step
+        return result
+
+    @staticmethod
+    def smoothstep_fading_most_recent(reference_flow):
+        result = {}
+        step = 1.0 / len(reference_flow)
+        x = step
+        for reference in reference_flow:
+            result[reference] = 3 * x ** 2 - 2 * x ** 2
+            x += step
         return result
 
 
@@ -137,6 +168,9 @@ for reference in references:
     print(i)
     benchmark.run(reference, FeatureIntensitiesModel.mere_occurrence)
     benchmark.run(reference, FeatureIntensitiesModel.count_occurrences)
-    benchmark.run(reference, FeatureIntensitiesModel.linear_fading_occurences)
+    benchmark.run(reference, FeatureIntensitiesModel.linear_fading_summing)
+    benchmark.run(reference, FeatureIntensitiesModel.linear_fading_most_recent)
+    benchmark.run(reference, FeatureIntensitiesModel.smoothstep_fading_summing)
+    benchmark.run(reference, FeatureIntensitiesModel.smoothstep_fading_most_recent)
     benchmark.print_summary()
     i += 1
