@@ -31,27 +31,27 @@ def calculate_vectors(feature_intensities):
 
 
 def limit_reference_flows(reference_id):
-    limited_reference_flows = {}
+    filtered_reference_flows = {}
     for focal in reference_flows:
         reference_flow = reference_flows[focal]
         try:
             last_index_of_reference = len(reference_flow) - reference_flow[::-1].index(reference_id) - 1
-            limited_reference_flow = reference_flow[:last_index_of_reference]
+            filtered_reference_flow = reference_flow[:last_index_of_reference]
         except ValueError:
             # Use full history when there is no global reference in there
-            limited_reference_flow = reference_flow
+            filtered_reference_flow = reference_flow
 
         # Exclude the currently investigated reference
-        limited_reference_flows[focal] = list(filter(lambda x: x != reference_id, limited_reference_flow))
-    return limited_reference_flows
+        filtered_reference_flows[focal] = list(filter(lambda x: x != reference_id, filtered_reference_flow))
+    return filtered_reference_flows
 
 
-def calculate_feature_intensities(limited_reference_flows, feature_intensities_model):
+def calculate_feature_intensities(filtered_reference_flows, feature_intensities_model):
     feature_intensities = {}
-    for focal in limited_reference_flows:
-        limited_reference_flow = limited_reference_flows[focal]
+    for focal in filtered_reference_flows:
+        filtered_reference_flow = filtered_reference_flows[focal]
         # Feature selection algorithm (key is the feature and value is the intensity)
-        feature_intensities[focal] = feature_intensities_model(limited_reference_flow)
+        feature_intensities[focal] = feature_intensities_model(filtered_reference_flow)
     return feature_intensities
 
 
@@ -148,10 +148,10 @@ class FeaturesIntensitiesBenchmark:
     runs = {}
 
     def run(self, reference, features_intensities_models):
-        limited_reference_flows = limit_reference_flows(reference['_id'])
+        filtered_reference_flows = limit_reference_flows(reference['_id'])
         for model in features_intensities_models:
             model_name = model.__name__
-            feature_intensities = calculate_feature_intensities(limited_reference_flows, model)
+            feature_intensities = calculate_feature_intensities(filtered_reference_flows, model)
             vectors = calculate_vectors(feature_intensities)
             distances = calculate_distances(vectors, reference['focals'])
             result = {
@@ -170,7 +170,7 @@ class FeaturesIntensitiesBenchmark:
             print(df['supports_hypothesis'].value_counts())
             print(f'Mean: {df["relative_difference"].mean()}')
             print(f'Std: {df["relative_difference"].std()}')
-            df.to_html(csv_filename)
+            df.to_csv(csv_filename)
 
 
 references = get_references()
