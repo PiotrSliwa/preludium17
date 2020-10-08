@@ -147,7 +147,7 @@ class FeatureIntensitiesModel:
 class FeaturesIntensitiesBenchmark:
     runs = {}
 
-    def run(self, reference, features_intensities_models):
+    def test_distances(self, reference, features_intensities_models):
         filtered_reference_flows = limit_reference_flows(reference['_id'])
         for model in features_intensities_models:
             model_name = model.__name__
@@ -180,12 +180,12 @@ summary_batch = 10
 for reference in references:
     print('==========')
     print(i)
-    benchmark.run(reference, [FeatureIntensitiesModel.mere_occurrence,
-                              FeatureIntensitiesModel.count_occurrences,
-                              FeatureIntensitiesModel.linear_fading_summing,
-                              FeatureIntensitiesModel.linear_fading_most_recent,
-                              FeatureIntensitiesModel.smoothstep_fading_summing,
-                              FeatureIntensitiesModel.smoothstep_fading_most_recent])
+    benchmark.test_distances(reference, [FeatureIntensitiesModel.mere_occurrence,
+                                         FeatureIntensitiesModel.count_occurrences,
+                                         FeatureIntensitiesModel.linear_fading_summing,
+                                         FeatureIntensitiesModel.linear_fading_most_recent,
+                                         FeatureIntensitiesModel.smoothstep_fading_summing,
+                                         FeatureIntensitiesModel.smoothstep_fading_most_recent])
     if i % summary_batch == 0:
         benchmark.summary('out.csv')
     i += 1
