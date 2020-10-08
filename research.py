@@ -20,9 +20,18 @@ def get_references():
     return reference_popularity
 
 
-def calculate_vectors(reference_id, calculate_feature_intensities):
+def calculate_vectors(feature_intensities):
+    """
+    :param feature_intensities: feature_intensities[focal] = [(feature, intensity)], e.g. focal_features['@User'] = [('feature_A', 0.5), ('feature_B', 1)]
+    :return: dict[focal] = vector
+    """
     vectorizer = DictVectorizer()
-    features = {}
+    vectorizer.fit(feature_intensities.values())
+    return dict(map(lambda e: (e[0], vectorizer.transform(e[1])), feature_intensities.items()))
+
+
+def limit_reference_flows(reference_id):
+    limited_reference_flows = {}
     for focal in reference_flows:
         reference_flow = reference_flows[focal]
         try:
@@ -33,13 +42,17 @@ def calculate_vectors(reference_id, calculate_feature_intensities):
             limited_reference_flow = reference_flow
 
         # Exclude the currently investigated reference
-        limited_reference_flow = list(filter(lambda x: x != reference_id, limited_reference_flow))
+        limited_reference_flows[focal] = list(filter(lambda x: x != reference_id, limited_reference_flow))
+    return limited_reference_flows
 
+
+def calculate_feature_intensities(limited_reference_flows, feature_intensities_model):
+    feature_intensities = {}
+    for focal in limited_reference_flows:
+        limited_reference_flow = limited_reference_flows[focal]
         # Feature selection algorithm (key is the feature and value is the intensity)
-        features[focal] = calculate_feature_intensities(limited_reference_flow)
-
-    vectorizer.fit(features.values())
-    return dict(map(lambda e: (e[0], vectorizer.transform(e[1])), features.items()))
+        feature_intensities[focal] = feature_intensities_model(limited_reference_flow)
+    return feature_intensities
 
 
 def calculate_distances(vectors, scoped_focals):
@@ -116,7 +129,7 @@ class FeatureIntensitiesModel:
         x = step
         for reference in reference_flow:
             current_intensity = result.setdefault(reference, 0.0)
-            result[reference] = current_intensity + 3 * x**2 - 2 * x**2
+            result[reference] = current_intensity + 3 * x ** 2 - 2 * x ** 2
             x += step
         return result
 
@@ -131,24 +144,23 @@ class FeatureIntensitiesModel:
         return result
 
 
-def test_distances(reference, features_intensities_model):
-    vectors = calculate_vectors(reference['_id'], features_intensities_model)
-    distances = calculate_distances(vectors, reference['focals'])
-    return {
-        **distances,
-        'reference': reference['_id'],
-        'supports_hypothesis': distances['scoped'] < distances['non_scoped'],
-        'relative_difference': (distances['non_scoped'] - distances['scoped']) / distances['non_scoped']
-    }
-
-
 class FeaturesIntensitiesBenchmark:
     runs = {}
 
-    def run(self, reference, features_intensities_model):
-        model_name = features_intensities_model.__name__
-        result = test_distances(reference, features_intensities_model)
-        self.runs.setdefault(model_name, []).append(result)
+    def run(self, reference, features_intensities_models):
+        limited_reference_flows = limit_reference_flows(reference['_id'])
+        for model in features_intensities_models:
+            model_name = model.__name__
+            feature_intensities = calculate_feature_intensities(limited_reference_flows, model)
+            vectors = calculate_vectors(feature_intensities)
+            distances = calculate_distances(vectors, reference['focals'])
+            result = {
+                **distances,
+                'reference': reference['_id'],
+                'supports_hypothesis': distances['scoped'] < distances['non_scoped'],
+                'relative_difference': (distances['non_scoped'] - distances['scoped']) / distances['non_scoped']
+            }
+            self.runs.setdefault(model_name, []).append(result)
 
     def print_summary(self):
         for model_name in self.runs:
@@ -166,11 +178,10 @@ i = 0
 for reference in references:
     print('==========')
     print(i)
-    benchmark.run(reference, FeatureIntensitiesModel.mere_occurrence)
-    benchmark.run(reference, FeatureIntensitiesModel.count_occurrences)
-    benchmark.run(reference, FeatureIntensitiesModel.linear_fading_summing)
-    benchmark.run(reference, FeatureIntensitiesModel.linear_fading_most_recent)
-    benchmark.run(reference, FeatureIntensitiesModel.smoothstep_fading_summing)
-    benchmark.run(reference, FeatureIntensitiesModel.smoothstep_fading_most_recent)
+    benchmark.run(reference, [FeatureIntensitiesModel.mere_occurrence, FeatureIntensitiesModel.count_occurrences,
+                              FeatureIntensitiesModel.linear_fading_summing,
+                              FeatureIntensitiesModel.linear_fading_most_recent,
+                              FeatureIntensitiesModel.smoothstep_fading_summing,
+                              FeatureIntensitiesModel.smoothstep_fading_most_recent])
     benchmark.print_summary()
     i += 1
