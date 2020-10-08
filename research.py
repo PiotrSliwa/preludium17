@@ -162,7 +162,7 @@ class FeaturesIntensitiesBenchmark:
             }
             self.runs.setdefault(model_name, []).append(result)
 
-    def print_summary(self):
+    def summary(self, csv_filename):
         for model_name in self.runs:
             run = self.runs[model_name]
             df = pd.DataFrame(run)
@@ -170,18 +170,22 @@ class FeaturesIntensitiesBenchmark:
             print(df['supports_hypothesis'].value_counts())
             print(f'Mean: {df["relative_difference"].mean()}')
             print(f'Std: {df["relative_difference"].std()}')
+            df.to_html(csv_filename)
 
 
 references = get_references()
 benchmark = FeaturesIntensitiesBenchmark()
 i = 0
+summary_batch = 10
 for reference in references:
     print('==========')
     print(i)
-    benchmark.run(reference, [FeatureIntensitiesModel.mere_occurrence, FeatureIntensitiesModel.count_occurrences,
+    benchmark.run(reference, [FeatureIntensitiesModel.mere_occurrence,
+                              FeatureIntensitiesModel.count_occurrences,
                               FeatureIntensitiesModel.linear_fading_summing,
                               FeatureIntensitiesModel.linear_fading_most_recent,
                               FeatureIntensitiesModel.smoothstep_fading_summing,
                               FeatureIntensitiesModel.smoothstep_fading_most_recent])
-    benchmark.print_summary()
+    if i % summary_batch == 0:
+        benchmark.summary('out.csv')
     i += 1
