@@ -30,7 +30,7 @@ def calculate_vectors(feature_intensities):
     return dict(map(lambda e: (e[0], vectorizer.transform(e[1])), feature_intensities.items()))
 
 
-def limit_reference_flows(reference_id):
+def filter_reference_flows(reference_id):
     filtered_reference_flows = {}
     for focal in reference_flows:
         reference_flow = reference_flows[focal]
@@ -148,7 +148,7 @@ class FeaturesIntensitiesBenchmark:
     runs = {}
 
     def test_distances(self, reference, features_intensities_models):
-        filtered_reference_flows = limit_reference_flows(reference['_id'])
+        filtered_reference_flows = filter_reference_flows(reference['_id'])
         for model in features_intensities_models:
             model_name = model.__name__
             feature_intensities = calculate_feature_intensities(filtered_reference_flows, model)
