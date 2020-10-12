@@ -149,7 +149,10 @@ class FeatureIntensitiesModel:
 
 
 class DistanceBenchmark:
-    runs = {}
+    runs = []
+
+    def __init__(self, result_csv_file):
+        self.result_csv_file = result_csv_file
 
     def run(self, reference, features_intensities_models):
         filtered_reference_flows = filter_reference_flows(reference['_id'])
@@ -162,19 +165,18 @@ class DistanceBenchmark:
                 **distances,
                 'reference': reference['_id'],
                 'supports_hypothesis': distances['scoped'] < distances['non_scoped'],
-                'relative_difference': (distances['non_scoped'] - distances['scoped']) / distances['non_scoped']
+                'relative_difference': (distances['non_scoped'] - distances['scoped']) / distances['non_scoped'],
+                'model_name': model_name
             }
-            self.runs.setdefault(model_name, []).append(result)
+            self.runs.append(result)
 
-    def summary(self, csv_filename):
-        for model_name in self.runs:
-            run = self.runs[model_name]
-            df = pd.DataFrame(run)
-            print(f'model_name: {model_name}')
-            print(df['supports_hypothesis'].value_counts())
-            print(f'Mean: {df["relative_difference"].mean()}')
-            print(f'Std: {df["relative_difference"].std()}')
-            df.to_csv(csv_filename)
+    def summary(self):
+        df = pd.DataFrame(self.runs)
+        print('Mean:')
+        print(df.groupby('model_name')['relative_difference'].mean())
+        print('Std:')
+        print(df.groupby('model_name')['relative_difference'].std())
+        df.to_csv(self.result_csv_file)
 
 
 class ClassificationBenchmark:
@@ -190,7 +192,7 @@ class ClassificationBenchmark:
 
 
 references = get_references()
-benchmark = DistanceBenchmark()
+benchmark = DistanceBenchmark('out.csv')
 i = 0
 summary_batch = 10
 for reference in references:
@@ -203,5 +205,5 @@ for reference in references:
                               FeatureIntensitiesModel.smoothstep_fading_summing,
                               FeatureIntensitiesModel.smoothstep_fading_most_recent])
     if i % summary_batch == 0:
-        benchmark.summary('out.csv')
+        benchmark.summary()
     i += 1
