@@ -55,6 +55,10 @@ def calculate_feature_intensities(filtered_reference_flows, feature_intensities_
     return feature_intensities
 
 
+def get_non_scoped_focals(vectors, scoped_focals):
+    return list(filter(lambda x: x not in scoped_focals, vectors.keys()))
+
+
 def calculate_distances(vectors, scoped_focals):
     def focal_distance(focal_a, focal_b):
         return distance.euclidean(vectors[focal_a].toarray(), vectors[focal_b].toarray())
@@ -76,7 +80,7 @@ def calculate_distances(vectors, scoped_focals):
                 count += 1
         return total / count
 
-    non_scoped_focals = list(filter(lambda x: x not in scoped_focals, vectors.keys()))
+    non_scoped_focals = get_non_scoped_focals(vectors, scoped_focals)
     return {
         'scoped': average_distance(scoped_focals),
         'non_scoped': average_distance(non_scoped_focals),
@@ -144,10 +148,10 @@ class FeatureIntensitiesModel:
         return result
 
 
-class FeaturesIntensitiesBenchmark:
+class DistanceBenchmark:
     runs = {}
 
-    def test_distances(self, reference, features_intensities_models):
+    def run(self, reference, features_intensities_models):
         filtered_reference_flows = filter_reference_flows(reference['_id'])
         for model in features_intensities_models:
             model_name = model.__name__
@@ -173,19 +177,31 @@ class FeaturesIntensitiesBenchmark:
             df.to_csv(csv_filename)
 
 
+class ClassificationBenchmark:
+    runs = {}
+
+    # train classifier
+
+    def run(self, reference, features_intensities_models):
+        pass
+
+    def summary(self, csv_filename):
+        pass
+
+
 references = get_references()
-benchmark = FeaturesIntensitiesBenchmark()
+benchmark = DistanceBenchmark()
 i = 0
 summary_batch = 10
 for reference in references:
     print('==========')
     print(i)
-    benchmark.test_distances(reference, [FeatureIntensitiesModel.mere_occurrence,
-                                         FeatureIntensitiesModel.count_occurrences,
-                                         FeatureIntensitiesModel.linear_fading_summing,
-                                         FeatureIntensitiesModel.linear_fading_most_recent,
-                                         FeatureIntensitiesModel.smoothstep_fading_summing,
-                                         FeatureIntensitiesModel.smoothstep_fading_most_recent])
+    benchmark.run(reference, [FeatureIntensitiesModel.mere_occurrence,
+                              FeatureIntensitiesModel.count_occurrences,
+                              FeatureIntensitiesModel.linear_fading_summing,
+                              FeatureIntensitiesModel.linear_fading_most_recent,
+                              FeatureIntensitiesModel.smoothstep_fading_summing,
+                              FeatureIntensitiesModel.smoothstep_fading_most_recent])
     if i % summary_batch == 0:
         benchmark.summary('out.csv')
     i += 1
