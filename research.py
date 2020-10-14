@@ -10,6 +10,8 @@ reference_flows = get_reference_flows(db)
 from sklearn.feature_extraction import DictVectorizer
 from scipy.spatial import distance
 from itertools import combinations
+import csv
+import os
 
 
 def get_references():
@@ -151,19 +153,57 @@ class FeatureIntensitiesModel:
 class DistanceBenchmark:
     runs = []
 
-    def __init__(self, result_csv_file):
-        self.result_csv_file = result_csv_file
+    @staticmethod
+    def convert(string):
+        try:
+            return float(string)
+        except ValueError as e:
+            return string
 
-    def run(self, reference, features_intensities_models):
-        filtered_reference_flows = filter_reference_flows(reference['_id'])
+    def read_csv(self):
+        result = []
+        if not os.path.exists(self.csv_file):
+            return result
+        with open(self.csv_file, newline='') as f:
+            reader = csv.DictReader(f)
+            line_count = 0
+            for row in reader:
+                if line_count > 0:
+                    converted_row = {k: DistanceBenchmark.convert(v) for k, v in row.items()}
+                    result.append(converted_row)
+                line_count += 1
+        return result
+
+    def write_csv(self):
+        with open(self.csv_file, 'w') as f:
+            writer = csv.DictWriter(f, fieldnames=['scoped', 'non_scoped', 'between', 'reference', 'supports_hypothesis', 'relative_difference', 'model_name'])
+            writer.writeheader()
+            writer.writerows(self.runs)
+
+    def __init__(self, csv_file):
+        self.csv_file = csv_file
+        self.runs = self.read_csv()
+
+    def contains(self, reference):
+        for run in self.runs:
+            if run['reference'] == reference:
+                return True
+        return False
+
+    def run(self, reference_popularity, features_intensities_models):
+        reference = reference_popularity['_id']
+        if self.contains(reference):
+            print(f'Ignoring {reference}')
+            return
+        filtered_reference_flows = filter_reference_flows(reference)
         for model in features_intensities_models:
             model_name = model.__name__
             feature_intensities = calculate_feature_intensities(filtered_reference_flows, model)
             vectors = calculate_vectors(feature_intensities)
-            distances = calculate_distances(vectors, reference['focals'])
+            distances = calculate_distances(vectors, reference_popularity['focals'])
             result = {
                 **distances,
-                'reference': reference['_id'],
+                'reference': reference,
                 'supports_hypothesis': distances['scoped'] < distances['non_scoped'],
                 'relative_difference': (distances['non_scoped'] - distances['scoped']) / distances['non_scoped'],
                 'model_name': model_name
@@ -176,7 +216,7 @@ class DistanceBenchmark:
         print(df.groupby('model_name')['relative_difference'].mean())
         print('Std:')
         print(df.groupby('model_name')['relative_difference'].std())
-        df.to_csv(self.result_csv_file)
+        self.write_csv()
 
 
 class ClassificationBenchmark:
@@ -191,19 +231,19 @@ class ClassificationBenchmark:
         pass
 
 
-references = get_references()
+reference_popularities = get_references()
 benchmark = DistanceBenchmark('out.csv')
 i = 0
-summary_batch = 10
-for reference in references:
+summary_batch = 1
+for reference_popularity in reference_popularities:
     print('==========')
     print(i)
-    benchmark.run(reference, [FeatureIntensitiesModel.mere_occurrence,
-                              FeatureIntensitiesModel.count_occurrences,
-                              FeatureIntensitiesModel.linear_fading_summing,
-                              FeatureIntensitiesModel.linear_fading_most_recent,
-                              FeatureIntensitiesModel.smoothstep_fading_summing,
-                              FeatureIntensitiesModel.smoothstep_fading_most_recent])
+    benchmark.run(reference_popularity, [FeatureIntensitiesModel.mere_occurrence,
+                                         FeatureIntensitiesModel.count_occurrences,
+                                         FeatureIntensitiesModel.linear_fading_summing,
+                                         FeatureIntensitiesModel.linear_fading_most_recent,
+                                         FeatureIntensitiesModel.smoothstep_fading_summing,
+                                         FeatureIntensitiesModel.smoothstep_fading_most_recent])
     if i % summary_batch == 0:
         benchmark.summary()
     i += 1
