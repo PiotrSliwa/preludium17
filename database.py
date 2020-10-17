@@ -111,10 +111,9 @@ def get_reference_flows(db):
     information_flow = db.materialized_information_flow.find().sort('date', 1)
     for row in information_flow:
         focal = row['focal']
-        reference = row['reference']
         if not focal in reference_flows:
             reference_flows[focal] = []
-        reference_flows[focal].append(reference)
+        reference_flows[focal].append(row)
     return reference_flows
 
 

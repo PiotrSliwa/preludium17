@@ -32,19 +32,26 @@ def calculate_vectors(feature_intensities):
     return dict(map(lambda e: (e[0], vectorizer.transform(e[1])), feature_intensities.items()))
 
 
+def index_of(matcher, arr):
+    for index, elem in enumerate(arr):
+        if matcher(elem):
+            return index
+    return None
+
+
 def filter_reference_flows(reference_id):
     filtered_reference_flows = {}
     for focal in reference_flows:
         reference_flow = reference_flows[focal]
         try:
-            last_index_of_reference = len(reference_flow) - reference_flow[::-1].index(reference_id) - 1
+            last_index_of_reference = index_of(lambda x: x['reference'] == reference_id, reference_flow[::-1])
             filtered_reference_flow = reference_flow[:last_index_of_reference]
         except ValueError:
             # Use full history when there is no global reference in there
             filtered_reference_flow = reference_flow
 
         # Exclude the currently investigated reference
-        filtered_reference_flows[focal] = list(filter(lambda x: x != reference_id, filtered_reference_flow))
+        filtered_reference_flows[focal] = list(filter(lambda x: x['reference'] != reference_id, filtered_reference_flow))
     return filtered_reference_flows
 
 
@@ -97,14 +104,15 @@ class FeatureIntensitiesModel:
 
     @staticmethod
     def mere_occurrence(reference_flow):
-        return dict([(reference, 1) for reference in reference_flow])
+        return dict([(reference['reference'], 1) for reference in reference_flow])
 
     @staticmethod
     def count_occurrences(reference_flow):
         result = {}
         for reference in reference_flow:
-            current_count = result.setdefault(reference, 0)
-            result[reference] = current_count + 1
+            reference_id = reference['reference']
+            current_count = result.setdefault(reference_id, 0)
+            result[reference_id] = current_count + 1
         return result
 
     @staticmethod
@@ -113,8 +121,9 @@ class FeatureIntensitiesModel:
         step = 1.0 / len(reference_flow)
         intensity = step
         for reference in reference_flow:
-            current_intensity = result.setdefault(reference, 0.0)
-            result[reference] = current_intensity + intensity
+            reference_id = reference['reference']
+            current_intensity = result.setdefault(reference_id, 0.0)
+            result[reference_id] = current_intensity + intensity
             intensity += step
         return result
 
@@ -124,7 +133,8 @@ class FeatureIntensitiesModel:
         step = 1.0 / len(reference_flow)
         intensity = step
         for reference in reference_flow:
-            result[reference] = intensity
+            reference_id = reference['reference']
+            result[reference_id] = intensity
             intensity += step
         return result
 
@@ -134,8 +144,9 @@ class FeatureIntensitiesModel:
         step = 1.0 / len(reference_flow)
         x = step
         for reference in reference_flow:
-            current_intensity = result.setdefault(reference, 0.0)
-            result[reference] = current_intensity + 3 * x ** 2 - 2 * x ** 2
+            reference_id = reference['reference']
+            current_intensity = result.setdefault(reference_id, 0.0)
+            result[reference_id] = current_intensity + 3 * x ** 2 - 2 * x ** 2
             x += step
         return result
 
@@ -145,7 +156,8 @@ class FeatureIntensitiesModel:
         step = 1.0 / len(reference_flow)
         x = step
         for reference in reference_flow:
-            result[reference] = 3 * x ** 2 - 2 * x ** 2
+            reference_id = reference['reference']
+            result[reference_id] = 3 * x ** 2 - 2 * x ** 2
             x += step
         return result
 
@@ -238,12 +250,9 @@ summary_batch = 1
 for reference_popularity in reference_popularities:
     print('==========')
     print(i)
-    benchmark.run(reference_popularity, [FeatureIntensitiesModel.mere_occurrence,
-                                         FeatureIntensitiesModel.count_occurrences,
+    benchmark.run(reference_popularity, [FeatureIntensitiesModel.count_occurrences,
                                          FeatureIntensitiesModel.linear_fading_summing,
-                                         FeatureIntensitiesModel.linear_fading_most_recent,
-                                         FeatureIntensitiesModel.smoothstep_fading_summing,
-                                         FeatureIntensitiesModel.smoothstep_fading_most_recent])
+                                         FeatureIntensitiesModel.smoothstep_fading_summing])
     if i % summary_batch == 0:
         benchmark.summary()
     i += 1
