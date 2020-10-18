@@ -12,6 +12,7 @@ from scipy.spatial import distance
 from itertools import combinations
 import csv
 import os
+from datetime import datetime
 
 
 def get_references():
@@ -100,8 +101,7 @@ def calculate_distances(vectors, scoped_focals):
 import pandas as pd
 
 
-class FeatureIntensitiesModel:
-
+class StaticFeatureIntensitiesModel:
     @staticmethod
     def mere_occurrence(reference_flow):
         return dict([(reference['reference'], 1) for reference in reference_flow])
@@ -115,50 +115,32 @@ class FeatureIntensitiesModel:
             result[reference_id] = current_count + 1
         return result
 
-    @staticmethod
-    def linear_fading_summing(reference_flow):
+
+class TemporalIntensitiesModel:
+    def __init__(self):
+        time_spans = list(map(lambda x: [self.__reference_timestamp(x[0]), self.__reference_timestamp(x[-1])], reference_flows.values()))
+        self.timestamp_min = min(list(map(lambda x: x[0], time_spans)))
+        self.timestamp_max = max(list(map(lambda x: x[1], time_spans)))
+
+    def __reference_timestamp(self, reference):
+        date = reference['date']
+        if isinstance(date, datetime):
+            return datetime.timestamp(date)
+        elif isinstance(date, str):
+            return datetime.timestamp(datetime.strptime(reference['date'], '%Y-%m-%d %H:%M:%S'))
+        else:
+            raise ValueError
+
+    def __intensity(self, reference):
+        timestamp = self.__reference_timestamp(reference)
+        return (timestamp - self.timestamp_min) / (self.timestamp_max - self.timestamp_min)
+
+    def linear_fading_summing(self, reference_flow):
         result = {}
-        step = 1.0 / len(reference_flow)
-        intensity = step
         for reference in reference_flow:
             reference_id = reference['reference']
             current_intensity = result.setdefault(reference_id, 0.0)
-            result[reference_id] = current_intensity + intensity
-            intensity += step
-        return result
-
-    @staticmethod
-    def linear_fading_most_recent(reference_flow):
-        result = {}
-        step = 1.0 / len(reference_flow)
-        intensity = step
-        for reference in reference_flow:
-            reference_id = reference['reference']
-            result[reference_id] = intensity
-            intensity += step
-        return result
-
-    @staticmethod
-    def smoothstep_fading_summing(reference_flow):
-        result = {}
-        step = 1.0 / len(reference_flow)
-        x = step
-        for reference in reference_flow:
-            reference_id = reference['reference']
-            current_intensity = result.setdefault(reference_id, 0.0)
-            result[reference_id] = current_intensity + 3 * x ** 2 - 2 * x ** 2
-            x += step
-        return result
-
-    @staticmethod
-    def smoothstep_fading_most_recent(reference_flow):
-        result = {}
-        step = 1.0 / len(reference_flow)
-        x = step
-        for reference in reference_flow:
-            reference_id = reference['reference']
-            result[reference_id] = 3 * x ** 2 - 2 * x ** 2
-            x += step
+            result[reference_id] = current_intensity + self.__intensity(reference)
         return result
 
 
@@ -247,12 +229,13 @@ reference_popularities = get_references()
 benchmark = DistanceBenchmark('out.csv')
 i = 0
 summary_batch = 1
+temporal_intensities_model = TemporalIntensitiesModel()
 for reference_popularity in reference_popularities:
     print('==========')
     print(i)
-    benchmark.run(reference_popularity, [FeatureIntensitiesModel.count_occurrences,
-                                         FeatureIntensitiesModel.linear_fading_summing,
-                                         FeatureIntensitiesModel.smoothstep_fading_summing])
+    benchmark.run(reference_popularity, [StaticFeatureIntensitiesModel.mere_occurrence,
+                                         StaticFeatureIntensitiesModel.count_occurrences,
+                                         temporal_intensities_model.linear_fading_summing])
     if i % summary_batch == 0:
         benchmark.summary()
     i += 1
