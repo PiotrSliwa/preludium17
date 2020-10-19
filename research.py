@@ -95,7 +95,11 @@ def calculate_distances(vectors, scoped_focals):
     return {
         'scoped': average_distance(scoped_focals),
         'non_scoped': average_distance(non_scoped_focals),
-        'between': average_distance_between(scoped_focals, non_scoped_focals)
+        'between': average_distance_between(scoped_focals, non_scoped_focals),
+        'meta': {
+            'scoped_focals': scoped_focals,
+            'non_scoped_focals': non_scoped_focals
+        }
     }
 
 
@@ -204,7 +208,7 @@ class DistanceBenchmark:
 
     def write_csv(self):
         with open(self.csv_file, 'w') as f:
-            writer = csv.DictWriter(f, fieldnames=['scoped', 'non_scoped', 'between', 'reference', 'supports_hypothesis', 'relative_difference', 'model_name'])
+            writer = csv.DictWriter(f, fieldnames=['scoped', 'non_scoped', 'between', 'reference', 'supports_hypothesis', 'relative_difference', 'model_name', 'scoped_focals', 'non_scoped_focals'])
             writer.writeheader()
             writer.writerows(self.runs)
 
@@ -230,11 +234,15 @@ class DistanceBenchmark:
             vectors = calculate_vectors(feature_intensities)
             distances = calculate_distances(vectors, reference_popularity['focals'])
             result = {
-                **distances,
+                'scoped': distances['scoped'],
+                'non_scoped': distances['non_scoped'],
+                'between': distances['between'],
                 'reference': reference,
                 'supports_hypothesis': distances['scoped'] < distances['non_scoped'],
                 'relative_difference': (distances['non_scoped'] - distances['scoped']) / distances['non_scoped'],
-                'model_name': model_name
+                'model_name': model_name,
+                'scoped_focals': ', '.join(distances['meta']['scoped_focals']),
+                'non_scoped_focals': ', '.join(distances['meta']['non_scoped_focals']),
             }
             self.runs.append(result)
 
