@@ -1,4 +1,5 @@
 # %% DB
+from math import ceil, floor
 
 from database import get_local_database, get_reference_flows
 
@@ -117,6 +118,8 @@ class StaticFeatureIntensitiesModel:
 
 
 class TemporalIntensitiesModel:
+    n_buckets = 10
+
     def __init__(self):
         time_spans = list(map(lambda x: [self.__reference_timestamp(x[0]), self.__reference_timestamp(x[-1])], reference_flows.values()))
         self.timestamp_min = min(list(map(lambda x: x[0], time_spans)))
@@ -131,17 +134,48 @@ class TemporalIntensitiesModel:
         else:
             raise ValueError
 
-    def __intensity(self, reference):
+    def __relative_time(self, reference):
+        """
+        :param reference:
+        :return: Relative time in the global timeframe (i.e. "0" when it is the first reference in the analyzed dataset, "1" if the last, "0.5" if in the middle, etc.)
+        """
         timestamp = self.__reference_timestamp(reference)
-        return (timestamp - self.timestamp_min) / (self.timestamp_max - self.timestamp_min)
+        return float(timestamp - self.timestamp_min) / float(self.timestamp_max - self.timestamp_min)
+
+    def __bucket_id(self, reference):
+        """
+        :param reference:
+        :return: A bucket id of the given reference
+        """
+        bucket_id = floor(self.__relative_time(reference) * self.n_buckets)
+        if bucket_id < self.n_buckets:
+            return bucket_id
+        return self.n_buckets - 1
+
+    def __flatten(self, reference_bucket_flow):
+        result = {}
+        for reference_id, buckets in reference_bucket_flow.items():
+            for bucket_id, value in enumerate(buckets):
+                result[f'{reference_id}__{bucket_id}'] = value
+        return result
 
     def linear_fading_summing(self, reference_flow):
         result = {}
         for reference in reference_flow:
             reference_id = reference['reference']
             current_intensity = result.setdefault(reference_id, 0.0)
-            result[reference_id] = current_intensity + self.__intensity(reference)
+            result[reference_id] = current_intensity + self.__relative_time(reference)
         return result
+
+    def count_occurrences_in_time_buckets(self, reference_flow):
+        result = {}
+        for reference in reference_flow:
+            reference_id = reference['reference']
+            current_buckets = result.setdefault(reference_id, [0] * self.n_buckets)
+            bucket_id = self.__bucket_id(reference)
+            current_count = current_buckets[bucket_id]
+            current_buckets[bucket_id] = current_count + 1
+        return self.__flatten(result)
 
 
 class DistanceBenchmark:
@@ -235,7 +269,8 @@ for reference_popularity in reference_popularities:
     print(i)
     benchmark.run(reference_popularity, [StaticFeatureIntensitiesModel.mere_occurrence,
                                          StaticFeatureIntensitiesModel.count_occurrences,
-                                         temporal_intensities_model.linear_fading_summing])
+                                         temporal_intensities_model.linear_fading_summing,
+                                         temporal_intensities_model.count_occurrences_in_time_buckets])
     if i % summary_batch == 0:
         benchmark.summary()
     i += 1
