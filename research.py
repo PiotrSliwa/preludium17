@@ -14,6 +14,8 @@ from itertools import combinations
 import csv
 import os
 from datetime import datetime
+import concurrent.futures
+import time
 
 
 def get_references():
@@ -53,7 +55,8 @@ def filter_reference_flows(reference_id):
             filtered_reference_flow = reference_flow
 
         # Exclude the currently investigated reference
-        filtered_reference_flows[focal] = list(filter(lambda x: x['reference'] != reference_id, filtered_reference_flow))
+        filtered_reference_flows[focal] = list(
+            filter(lambda x: x['reference'] != reference_id, filtered_reference_flow))
     return filtered_reference_flows
 
 
@@ -125,7 +128,8 @@ class TemporalIntensitiesModel:
     n_buckets = 10
 
     def __init__(self):
-        time_spans = list(map(lambda x: [self.__reference_timestamp(x[0]), self.__reference_timestamp(x[-1])], reference_flows.values()))
+        time_spans = list(map(lambda x: [self.__reference_timestamp(x[0]), self.__reference_timestamp(x[-1])],
+                              reference_flows.values()))
         self.timestamp_min = min(list(map(lambda x: x[0], time_spans)))
         self.timestamp_max = max(list(map(lambda x: x[1], time_spans)))
 
@@ -184,6 +188,7 @@ class TemporalIntensitiesModel:
 
 class DistanceBenchmark:
     runs = []
+    executor = concurrent.futures.ThreadPoolExecutor()
 
     @staticmethod
     def convert(string):
@@ -208,7 +213,10 @@ class DistanceBenchmark:
 
     def write_csv(self):
         with open(self.csv_file, 'w') as f:
-            writer = csv.DictWriter(f, fieldnames=['scoped', 'non_scoped', 'between', 'reference', 'supports_hypothesis', 'relative_difference', 'model_name', 'scoped_focals', 'non_scoped_focals'])
+            writer = csv.DictWriter(f,
+                                    fieldnames=['scoped', 'non_scoped', 'between', 'reference', 'supports_hypothesis',
+                                                'relative_difference', 'model_name', 'scoped_focals',
+                                                'non_scoped_focals'])
             writer.writeheader()
             writer.writerows(self.runs)
 
@@ -222,29 +230,41 @@ class DistanceBenchmark:
                 return True
         return False
 
+    def __run_single_model(self, reference, reference_popularity, filtered_reference_flows, model):
+        start_time = time.time()
+        model_name = model.__name__
+        feature_intensities = calculate_feature_intensities(filtered_reference_flows, model)
+        vectors = calculate_vectors(feature_intensities)
+        distances = calculate_distances(vectors, reference_popularity['focals'])
+        result = {
+            'scoped': distances['scoped'],
+            'non_scoped': distances['non_scoped'],
+            'between': distances['between'],
+            'reference': reference,
+            'supports_hypothesis': distances['scoped'] < distances['non_scoped'],
+            'relative_difference': (distances['non_scoped'] - distances['scoped']) / distances['non_scoped'],
+            'model_name': model_name,
+            'scoped_focals': ', '.join(distances['meta']['scoped_focals']),
+            'non_scoped_focals': ', '.join(distances['meta']['non_scoped_focals']),
+        }
+        self.runs.append(result)
+        return f'model {model} finished in {time.time() - start_time}s'
+
     def run(self, reference_popularity, features_intensities_models):
         reference = reference_popularity['_id']
         if self.contains(reference):
             print(f'Ignoring {reference}')
             return
         filtered_reference_flows = filter_reference_flows(reference)
+        futures = []
         for model in features_intensities_models:
-            model_name = model.__name__
-            feature_intensities = calculate_feature_intensities(filtered_reference_flows, model)
-            vectors = calculate_vectors(feature_intensities)
-            distances = calculate_distances(vectors, reference_popularity['focals'])
-            result = {
-                'scoped': distances['scoped'],
-                'non_scoped': distances['non_scoped'],
-                'between': distances['between'],
-                'reference': reference,
-                'supports_hypothesis': distances['scoped'] < distances['non_scoped'],
-                'relative_difference': (distances['non_scoped'] - distances['scoped']) / distances['non_scoped'],
-                'model_name': model_name,
-                'scoped_focals': ', '.join(distances['meta']['scoped_focals']),
-                'non_scoped_focals': ', '.join(distances['meta']['non_scoped_focals']),
-            }
-            self.runs.append(result)
+            futures.append(self.executor.submit(self.__run_single_model,
+                                                reference=reference,
+                                                reference_popularity=reference_popularity,
+                                                filtered_reference_flows=filtered_reference_flows,
+                                                model=model))
+        for future in concurrent.futures.as_completed(futures):
+            print(future.result())
 
     def summary(self):
         df = pd.DataFrame(self.runs)
@@ -273,8 +293,7 @@ i = 0
 summary_batch = 1
 temporal_intensities_model = TemporalIntensitiesModel()
 for reference_popularity in reference_popularities:
-    print('==========')
-    print(i)
+    print(f'\n====================\n{i}.')
     benchmark.run(reference_popularity, [StaticFeatureIntensitiesModel.mere_occurrence,
                                          StaticFeatureIntensitiesModel.count_occurrences,
                                          temporal_intensities_model.linear_fading_summing,
