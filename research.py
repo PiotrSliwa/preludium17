@@ -187,6 +187,7 @@ class TemporalIntensitiesModel:
 
 
 class DistanceBenchmark:
+    collection = db.results
     runs = []
     executor = concurrent.futures.ThreadPoolExecutor()
 
@@ -197,32 +198,15 @@ class DistanceBenchmark:
         except ValueError as e:
             return string
 
-    def read_csv(self):
-        result = []
-        if not os.path.exists(self.csv_file):
-            return result
-        with open(self.csv_file, newline='') as f:
-            reader = csv.DictReader(f)
-            line_count = 0
-            for row in reader:
-                if line_count > 0:
-                    converted_row = {k: DistanceBenchmark.convert(v) for k, v in row.items()}
-                    result.append(converted_row)
-                line_count += 1
-        return result
+    def __read(self):
+        cursor = self.collection.find({})
+        for document in cursor:
+            yield document
 
-    def write_csv(self):
-        with open(self.csv_file, 'w') as f:
-            writer = csv.DictWriter(f,
-                                    fieldnames=['scoped', 'non_scoped', 'between', 'reference', 'supports_hypothesis',
-                                                'relative_difference', 'model_name', 'scoped_focals',
-                                                'non_scoped_focals'])
-            writer.writeheader()
-            writer.writerows(self.runs)
-
-    def __init__(self, csv_file):
-        self.csv_file = csv_file
-        self.runs = self.read_csv()
+    def __init__(self, fresh_start):
+        if fresh_start:
+            self.collection.drop()
+        self.runs = list(self.__read())
 
     def contains(self, reference):
         for run in self.runs:
@@ -236,6 +220,7 @@ class DistanceBenchmark:
         feature_intensities = calculate_feature_intensities(filtered_reference_flows, model)
         vectors = calculate_vectors(feature_intensities)
         distances = calculate_distances(vectors, reference_popularity['focals'])
+        time_length = time.time() - start_time
         result = {
             'scoped': distances['scoped'],
             'non_scoped': distances['non_scoped'],
@@ -246,9 +231,11 @@ class DistanceBenchmark:
             'model_name': model_name,
             'scoped_focals': ', '.join(distances['meta']['scoped_focals']),
             'non_scoped_focals': ', '.join(distances['meta']['non_scoped_focals']),
+            'time_length': time_length
         }
+        self.collection.replace_one({'reference': reference, 'model_name': model_name}, result, True)
         self.runs.append(result)
-        return f'model {model} finished in {time.time() - start_time}s'
+        return f'model {model} finished in {time_length}s'
 
     def run(self, reference_popularity, features_intensities_models):
         reference = reference_popularity['_id']
@@ -272,7 +259,6 @@ class DistanceBenchmark:
         print(df.groupby('model_name')['relative_difference'].mean())
         print('Std:')
         print(df.groupby('model_name')['relative_difference'].std())
-        self.write_csv()
 
 
 class ClassificationBenchmark:
@@ -288,16 +274,14 @@ class ClassificationBenchmark:
 
 
 reference_popularities = get_references()
-benchmark = DistanceBenchmark('out.csv')
-i = 0
-summary_batch = 1
+benchmark = DistanceBenchmark(fresh_start=True)
 temporal_intensities_model = TemporalIntensitiesModel()
+i = 0
 for reference_popularity in reference_popularities:
-    print(f'\n====================\n{i}.')
+    print(f'\n====================\n{i}. {reference_popularity["_id"]}')
     benchmark.run(reference_popularity, [StaticFeatureIntensitiesModel.mere_occurrence,
                                          StaticFeatureIntensitiesModel.count_occurrences,
                                          temporal_intensities_model.linear_fading_summing,
                                          temporal_intensities_model.count_occurrences_in_time_buckets])
-    if i % summary_batch == 0:
-        benchmark.summary()
+    # benchmark.summary()
     i += 1
