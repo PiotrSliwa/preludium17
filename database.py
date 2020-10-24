@@ -106,7 +106,7 @@ def materialize_views():
     ])
 
 
-def get_reference_flows(db):
+def get_reference_flows_by_focal(db):
     reference_flows = {}
     information_flow = db.materialized_information_flow.find().sort('date', 1)
     for row in information_flow:
