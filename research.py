@@ -69,10 +69,6 @@ def calculate_feature_intensities(filtered_reference_flows, feature_intensities_
     return feature_intensities
 
 
-def get_non_scoped_focals(vectors, scoped_focals):
-    return list(filter(lambda x: x not in scoped_focals, vectors.keys()))
-
-
 import pandas as pd
 
 
@@ -154,7 +150,7 @@ class TemporalIntensitiesModel:
 
 
 class DistanceBenchmark:
-    collection = db.distance_benchmarks
+    results_collection = db.distance_benchmarks
     runs = []
     executor = concurrent.futures.ThreadPoolExecutor()
 
@@ -166,13 +162,13 @@ class DistanceBenchmark:
             return string
 
     def __read(self):
-        cursor = self.collection.find({})
+        cursor = self.results_collection.find({})
         for document in cursor:
             yield document
 
     def __init__(self, fresh_start):
         if fresh_start:
-            self.collection.drop()
+            self.results_collection.drop()
         self.runs = list(self.__read())
 
     def contains(self, reference):
@@ -181,60 +177,46 @@ class DistanceBenchmark:
                 return True
         return False
 
-    def __calculate_distances(self, vectors, scoped_focals):
-        def focal_distance(focal_a, focal_b):
-            return distance.euclidean(vectors[focal_a].toarray(), vectors[focal_b].toarray())
+    def __distance(self, vector_a, vector_b):
+        return distance.euclidean(vector_a.toarray(), vector_b.toarray())
 
-        def average_distance(focals):
-            total = 0.0
-            count = 0
-            for (a, b) in combinations(focals, 2):
-                total += focal_distance(a, b)
-                count += 1
-            return total / count
+    def __average_distance(self, vectors):
+        total = 0.0
+        count = 0
+        focals = vectors.keys()
+        for (a, b) in combinations(focals, 2):
+            total += self.__distance(vectors[a], vectors[b])
+            count += 1
+        return total / count
 
-        def average_distance_between(focals_a, focals_b):
-            total = 0.0
-            count = 0
-            for a in focals_a:
-                for b in focals_b:
-                    total += focal_distance(a, b)
-                    count += 1
-            return total / count
-
-        non_scoped_focals = get_non_scoped_focals(vectors, scoped_focals)
-        return {
-            'scoped': average_distance(scoped_focals),
-            'non_scoped': average_distance(non_scoped_focals),
-            'between': average_distance_between(scoped_focals, non_scoped_focals),
-            'meta': {
-                'scoped_focals': scoped_focals,
-                'non_scoped_focals': non_scoped_focals
-            }
-        }
+    def __split(self, vectors, scoped_focals):
+        scoped = dict(filter(lambda x: x[0] in scoped_focals, vectors.items()))
+        non_scoped = dict(filter(lambda x: x[0] not in scoped_focals, vectors.items()))
+        return scoped, non_scoped
 
     def __run_single_model(self, reference, reference_popularity, filtered_reference_flows, model):
         start_time = time.time()
         model_name = model.__name__
         feature_intensities = calculate_feature_intensities(filtered_reference_flows, model)
         vectors = calculate_vectors(feature_intensities)
-        distances = self.__calculate_distances(vectors, reference_popularity['focals'])
-        time_length = time.time() - start_time
+        scoped_vectors, non_scoped_vectors = self.__split(vectors, reference_popularity['focals'])
+        avg_distance_scoped = self.__average_distance(scoped_vectors)
+        avg_distance_non_scoped = self.__average_distance(non_scoped_vectors)
+        duration = time.time() - start_time
         result = {
-            'scoped': distances['scoped'],
-            'non_scoped': distances['non_scoped'],
-            'between': distances['between'],
+            'scoped': avg_distance_scoped,
+            'non_scoped': avg_distance_non_scoped,
             'reference': reference,
-            'supports_hypothesis': distances['scoped'] < distances['non_scoped'],
-            'relative_difference': (distances['non_scoped'] - distances['scoped']) / distances['non_scoped'],
+            'supports_hypothesis': avg_distance_scoped < avg_distance_non_scoped,
+            'relative_difference': (avg_distance_non_scoped - avg_distance_scoped) / avg_distance_non_scoped,
             'model_name': model_name,
-            'scoped_focals': ', '.join(distances['meta']['scoped_focals']),
-            'non_scoped_focals': ', '.join(distances['meta']['non_scoped_focals']),
-            'time_length': time_length
+            'scoped_focals': ' '.join(scoped_vectors.keys()),
+            'non_scoped_focals': ' '.join(non_scoped_vectors.keys()),
+            'duration': duration
         }
-        self.collection.replace_one({'reference': reference, 'model_name': model_name}, result, True)
+        self.results_collection.replace_one({'reference': reference, 'model_name': model_name}, result, True)
         self.runs.append(result)
-        return f'model {model} finished in {time_length}s'
+        return f'model {model} finished in {duration}s'
 
     def run(self, reference_popularity, features_intensities_models):
         reference = reference_popularity['_id']
