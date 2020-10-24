@@ -73,39 +73,6 @@ def get_non_scoped_focals(vectors, scoped_focals):
     return list(filter(lambda x: x not in scoped_focals, vectors.keys()))
 
 
-def calculate_distances(vectors, scoped_focals):
-    def focal_distance(focal_a, focal_b):
-        return distance.euclidean(vectors[focal_a].toarray(), vectors[focal_b].toarray())
-
-    def average_distance(focals):
-        total = 0.0
-        count = 0
-        for (a, b) in combinations(focals, 2):
-            total += focal_distance(a, b)
-            count += 1
-        return total / count
-
-    def average_distance_between(focals_a, focals_b):
-        total = 0.0
-        count = 0
-        for a in focals_a:
-            for b in focals_b:
-                total += focal_distance(a, b)
-                count += 1
-        return total / count
-
-    non_scoped_focals = get_non_scoped_focals(vectors, scoped_focals)
-    return {
-        'scoped': average_distance(scoped_focals),
-        'non_scoped': average_distance(non_scoped_focals),
-        'between': average_distance_between(scoped_focals, non_scoped_focals),
-        'meta': {
-            'scoped_focals': scoped_focals,
-            'non_scoped_focals': non_scoped_focals
-        }
-    }
-
-
 import pandas as pd
 
 
@@ -214,12 +181,44 @@ class DistanceBenchmark:
                 return True
         return False
 
+    def __calculate_distances(self, vectors, scoped_focals):
+        def focal_distance(focal_a, focal_b):
+            return distance.euclidean(vectors[focal_a].toarray(), vectors[focal_b].toarray())
+
+        def average_distance(focals):
+            total = 0.0
+            count = 0
+            for (a, b) in combinations(focals, 2):
+                total += focal_distance(a, b)
+                count += 1
+            return total / count
+
+        def average_distance_between(focals_a, focals_b):
+            total = 0.0
+            count = 0
+            for a in focals_a:
+                for b in focals_b:
+                    total += focal_distance(a, b)
+                    count += 1
+            return total / count
+
+        non_scoped_focals = get_non_scoped_focals(vectors, scoped_focals)
+        return {
+            'scoped': average_distance(scoped_focals),
+            'non_scoped': average_distance(non_scoped_focals),
+            'between': average_distance_between(scoped_focals, non_scoped_focals),
+            'meta': {
+                'scoped_focals': scoped_focals,
+                'non_scoped_focals': non_scoped_focals
+            }
+        }
+
     def __run_single_model(self, reference, reference_popularity, filtered_reference_flows, model):
         start_time = time.time()
         model_name = model.__name__
         feature_intensities = calculate_feature_intensities(filtered_reference_flows, model)
         vectors = calculate_vectors(feature_intensities)
-        distances = calculate_distances(vectors, reference_popularity['focals'])
+        distances = self.__calculate_distances(vectors, reference_popularity['focals'])
         time_length = time.time() - start_time
         result = {
             'scoped': distances['scoped'],
