@@ -189,13 +189,15 @@ class DistanceBenchmark:
         scoped_vectors, non_scoped_vectors = self.__split(vectors, reference_popularity['focals'])
         avg_distance_scoped = self.__average_distance(scoped_vectors)
         avg_distance_non_scoped = self.__average_distance(non_scoped_vectors)
+        avg_distance_all = self.__average_distance(vectors)
         duration = time.time() - start_time
         result = {
+            'all': avg_distance_all,
             'scoped': avg_distance_scoped,
             'non_scoped': avg_distance_non_scoped,
             'reference_id': reference_id,
-            'supports_hypothesis': avg_distance_scoped < avg_distance_non_scoped,
-            'relative_difference': (avg_distance_non_scoped - avg_distance_scoped) / avg_distance_non_scoped,
+            'supports_hypothesis': avg_distance_scoped < avg_distance_all,
+            'relative_difference': (avg_distance_all - avg_distance_scoped) / avg_distance_all,
             'model_name': model_name,
             'scoped_focals': ' '.join(scoped_vectors.keys()),
             'non_scoped_focals': ' '.join(non_scoped_vectors.keys()),
