@@ -187,7 +187,7 @@ class TemporalIntensitiesModel:
 
 
 class DistanceBenchmark:
-    collection = db.results
+    collection = db.distance_benchmarks
     runs = []
     executor = concurrent.futures.ThreadPoolExecutor()
 
