@@ -222,18 +222,6 @@ class DistanceBenchmark:
             print(future.result())
 
 
-class ClassificationBenchmark:
-    runs = {}
-
-    # train classifier
-
-    def run(self, reference, features_intensities_models):
-        pass
-
-    def summary(self, csv_filename):
-        pass
-
-
 def get_reference_popularities():
     most_popular_reference = next(db.materialized_reference_popularity.find().sort([('popularity', -1)]))
     max_popularity = most_popular_reference['popularity']
