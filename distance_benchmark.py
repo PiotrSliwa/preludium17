@@ -182,11 +182,11 @@ class DistanceBenchmark:
         non_scoped = dict(filter(lambda x: x[0] not in scoped_focals, vectors.items()))
         return scoped, non_scoped
 
-    def __run_single_model(self, reference_id, reference_popularity, cut_reference_flows, model):
+    def __run_single_model(self, reference_id, scoped_focals, cut_reference_flows, model):
         start_time = time.time()
         model_name = model.__name__
         vectors = FeatureVectors.by_focal(cut_reference_flows, model)
-        scoped_vectors, non_scoped_vectors = self.__split(vectors, reference_popularity['focals'])
+        scoped_vectors, non_scoped_vectors = self.__split(vectors, scoped_focals)
         avg_distance_scoped = self.__average_distance(scoped_vectors)
         avg_distance_non_scoped = self.__average_distance(non_scoped_vectors)
         avg_distance_all = self.__average_distance(vectors)
@@ -207,8 +207,7 @@ class DistanceBenchmark:
         self.runs.append(result)
         return f'model {model} finished in {duration}s'
 
-    def run(self, reference_popularity, features_intensities_models):
-        reference_id = reference_popularity['_id']
+    def run(self, reference_id, scoped_focals, features_intensities_models):
         if self.contains(reference_id):
             print(f'Ignoring {reference_id}')
             return
@@ -217,7 +216,7 @@ class DistanceBenchmark:
         for model in features_intensities_models:
             futures.append(self.executor.submit(self.__run_single_model,
                                                 reference_id=reference_id,
-                                                reference_popularity=reference_popularity,
+                                                scoped_focals=scoped_focals,
                                                 cut_reference_flows=cut_reference_flows,
                                                 model=model))
         for future in concurrent.futures.as_completed(futures):
@@ -240,9 +239,13 @@ if __name__ == '__main__':
     temporal_intensities_model = FeatureVectors.TemporalIntensitiesModel(reference_flows)
     i = 0
     for reference_popularity in reference_popularities:
-        print(f'\n====================\n{i}. {reference_popularity["_id"]}')
-        benchmark.run(reference_popularity, [FeatureVectors.StaticFeatureIntensitiesModel.mere_occurrence,
-                                             FeatureVectors.StaticFeatureIntensitiesModel.count_occurrences,
-                                             temporal_intensities_model.linear_fading_summing,
-                                             temporal_intensities_model.count_occurrences_in_time_buckets])
+        reference_id = reference_popularity['_id']
+        scoped_focals = reference_popularity['focals']
+        print(f'\n====================\n{i}. {reference_id}')
+        benchmark.run(reference_id,
+                      scoped_focals,
+                      features_intensities_models=[FeatureVectors.StaticFeatureIntensitiesModel.mere_occurrence,
+                                                   FeatureVectors.StaticFeatureIntensitiesModel.count_occurrences,
+                                                   temporal_intensities_model.linear_fading_summing,
+                                                   temporal_intensities_model.count_occurrences_in_time_buckets])
         i += 1
