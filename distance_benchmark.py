@@ -8,52 +8,21 @@ import concurrent.futures
 import time
 
 
-class GroupedReferenceFlows:
-    def __init__(self, db):
-        self.reference_flows_by_focal = get_reference_flows_by_focal(db)
-
-    @staticmethod
-    def __index_of(matcher, arr):
-        for index, elem in enumerate(arr):
-            if matcher(elem):
-                return index
-        return None
-
-    def get_cut_to_reference_id(self, reference_id):
-        filtered_flow = {}
-        for focal in self.reference_flows_by_focal:
-            flow = self.reference_flows_by_focal[focal]
-            try:
-                last_index_of_reference = self.__index_of(lambda x: x['reference'] == reference_id, flow[::-1])
-                filtered_reference_flow = flow[:last_index_of_reference]
-            except ValueError:
-                # Use full history when there is no global reference in there
-                filtered_reference_flow = flow
-
-            # Exclude the currently investigated reference
-            filtered_flow[focal] = list(
-                filter(lambda x: x['reference'] != reference_id, filtered_reference_flow))
-        return filtered_flow
-
-    def get_all(self):
-        return self.reference_flows_by_focal
-
-
 class FeatureVectors:
 
     @staticmethod
-    def __calculate_vector(feature_intensities_by_focal):
+    def __calculate_vector(feature_intensities_batch_dict):
         """
-        :param feature_intensities_by_focal: feature_intensities[focal] = [(feature, intensity)], e.g. focal_features['@User'] = [('feature_A', 0.5), ('feature_B', 1)]
-        :return: dict[focal] = vector
+        :param feature_intensities_batch_dict: feature_intensities[key] = [(feature, intensity)], e.g. focal_features['@User'] = [('feature_A', 0.5), ('feature_B', 1)]
+        :return: dict[key] = vector
         """
         vectorizer = DictVectorizer()
-        vectorizer.fit(feature_intensities_by_focal.values())
-        return dict(map(lambda e: (e[0], vectorizer.transform(e[1])), feature_intensities_by_focal.items()))
+        vectorizer.fit(feature_intensities_batch_dict.values())
+        return dict(map(lambda e: (e[0], vectorizer.transform(e[1])), feature_intensities_batch_dict.items()))
 
     @staticmethod
-    def by_focal(reference_flows_by_focal, feature_intensity_model):
-        feature_intensities = {focal: feature_intensity_model(flow) for focal, flow in reference_flows_by_focal.items()}
+    def batched(reference_flows_batch_dict, feature_intensity_model):
+        feature_intensities = {key: feature_intensity_model(flow) for key, flow in reference_flows_batch_dict.items()}
         return FeatureVectors.__calculate_vector(feature_intensities)
 
     class StaticFeatureIntensitiesModel:
@@ -75,7 +44,7 @@ class FeatureVectors:
 
         def __init__(self, reference_flows):
             time_spans = list(map(lambda x: [self.__reference_timestamp(x[0]), self.__reference_timestamp(x[-1])],
-                                  reference_flows.get_all().values()))
+                                  reference_flows.values()))
             self.timestamp_min = min(list(map(lambda x: x[0], time_spans)))
             self.timestamp_max = max(list(map(lambda x: x[1], time_spans)))
 
@@ -134,6 +103,39 @@ class FeatureVectors:
             return self.__flatten(result)
 
 
+class CutToLastReferenceFeatureVectorsFactory:
+    def __init__(self, reference_id, reference_flows_by_focal):
+        self.cut_reference_flows = self.__cut_to_reference_id(reference_id, reference_flows_by_focal)
+
+    @staticmethod
+    def __index_of(matcher, arr):
+        for index, elem in enumerate(arr):
+            if matcher(elem):
+                return index
+        return None
+
+    @staticmethod
+    def __cut_to_reference_id(reference_id, reference_flows_by_focal):
+        filtered_flow = {}
+        for focal in reference_flows_by_focal:
+            flow = reference_flows_by_focal[focal]
+            try:
+                last_index_of_reference = CutToLastReferenceFeatureVectorsFactory.__index_of(
+                    lambda x: x['reference'] == reference_id, flow[::-1])
+                filtered_reference_flow = flow[:last_index_of_reference]
+            except ValueError:
+                # Use full history when there is no global reference in there
+                filtered_reference_flow = flow
+
+            # Exclude the currently investigated reference
+            filtered_flow[focal] = list(
+                filter(lambda x: x['reference'] != reference_id, filtered_reference_flow))
+        return filtered_flow
+
+    def create(self, feature_intensity_model):
+        return FeatureVectors.batched(self.cut_reference_flows, feature_intensity_model)
+
+
 class DistanceBenchmark:
     runs = []
     executor = concurrent.futures.ThreadPoolExecutor()
@@ -182,10 +184,10 @@ class DistanceBenchmark:
         non_scoped = dict(filter(lambda x: x[0] not in scoped_focals, vectors.items()))
         return scoped, non_scoped
 
-    def __run_single_model(self, reference_id, scoped_focals, cut_reference_flows, model):
+    def __run_single_model(self, reference_id, scoped_focals, feature_vectors_factory, model):
         start_time = time.time()
         model_name = model.__name__
-        vectors = FeatureVectors.by_focal(cut_reference_flows, model)
+        vectors = feature_vectors_factory.create(model)
         scoped_vectors, non_scoped_vectors = self.__split(vectors, scoped_focals)
         avg_distance_scoped = self.__average_distance(scoped_vectors)
         avg_distance_non_scoped = self.__average_distance(non_scoped_vectors)
@@ -211,13 +213,13 @@ class DistanceBenchmark:
         if self.contains(reference_id):
             print(f'Ignoring {reference_id}')
             return
-        cut_reference_flows = self.reference_flows.get_cut_to_reference_id(reference_id)
+        feature_vectors_factory = CutToLastReferenceFeatureVectorsFactory(reference_id, self.reference_flows)
         futures = []
         for model in features_intensities_models:
             futures.append(self.executor.submit(self.__run_single_model,
                                                 reference_id=reference_id,
                                                 scoped_focals=scoped_focals,
-                                                cut_reference_flows=cut_reference_flows,
+                                                feature_vectors_factory=feature_vectors_factory,
                                                 model=model))
         for future in concurrent.futures.as_completed(futures):
             print(future.result())
@@ -234,9 +236,9 @@ def get_reference_popularities():
 if __name__ == '__main__':
     db = get_local_database()
     reference_popularities = get_reference_popularities()
-    reference_flows = GroupedReferenceFlows(db)
-    benchmark = DistanceBenchmark(db, reference_flows, fresh_start=True)
-    temporal_intensities_model = FeatureVectors.TemporalIntensitiesModel(reference_flows)
+    reference_flows_by_focal = get_reference_flows_by_focal(db)
+    benchmark = DistanceBenchmark(db, reference_flows_by_focal, fresh_start=True)
+    temporal_intensities_model = FeatureVectors.TemporalIntensitiesModel(reference_flows_by_focal)
     i = 0
     for reference_popularity in reference_popularities:
         reference_id = reference_popularity['_id']
