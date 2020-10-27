@@ -1,9 +1,10 @@
 import argparse
+import re
 from datetime import datetime
 
-import GetOldTweets3 as got
+from snscrape.modules import twitter
 
-from database import get_local_database, materialize_views
+from database import get_local_database
 
 
 def log(msg):
@@ -16,7 +17,7 @@ class TweetCollection:
         self.username = username
         self.processed_tweet_ids = set()
         self.db = get_local_database()
-        self.db_collection = self.db.tweets
+        self.db_collection = self.db.test_tweets
 
     def save(self, tweet):
         doc = {**tweet, '_id': tweet['id']}
@@ -25,22 +26,45 @@ class TweetCollection:
     def add_all(self, tweets):
         previous_len = len(self.processed_tweet_ids)
         for tweet in tweets:
-            tweet_dict = tweet.__dict__
-            self.processed_tweet_ids.add(tweet_dict['id'])
-            self.save(tweet_dict)
+            self.processed_tweet_ids.add(tweet['id'])
+            self.save(tweet)
         current_len = len(self.processed_tweet_ids)
         if previous_len == current_len:
             raise Exception('No new tweets added!')
         log(f'Processed {current_len - previous_len} tweet(s). Total: {len(self.processed_tweet_ids)}')
 
 
+def scrape_hashtags(string):
+    return re.findall(r'(#\w+)\b', string)
+
+
+def normalize_tweet(tweet):
+    return {
+        "_id": tweet.id,
+        "username": tweet.username,
+        "to": None,
+        "text": tweet.content,
+        "retweets": tweet.retweetCount,
+        "favorites": tweet.likeCount,
+        "replies": tweet.replyCount,
+        "id": tweet.id,
+        "permalink": tweet.url,
+        "author_id": None,
+        "date": tweet.date,
+        "formatted_date": tweet.date.isoformat(),
+        "hashtags": ' '.join(scrape_hashtags(tweet.content)),
+        "mentions": ' '.join(list(map(lambda x: '@' + x.username, tweet.mentionedUsers))) if tweet.mentionedUsers is not None else '',
+        "geo": None,
+        "urls": ' '.join(tweet.outlinks)
+    }
+
+
 def collect(username):
     tweet_collection = TweetCollection(username)
-    tweet_criteria = got.manager.TweetCriteria().setUsername(username)
-    got.manager.TweetManager.getTweets(tweet_criteria,
-                                       debug=False,
-                                       # bufferLength=1,
-                                       receiveBuffer=tweet_collection.add_all)
+    tweets = twitter.TwitterUserScraper(username).get_items()
+    for tweet in tweets:
+        normalized_tweet = normalize_tweet(tweet)
+        tweet_collection.add_all([normalized_tweet])
     return tweet_collection.processed_tweet_ids
 
 
@@ -93,6 +117,6 @@ if __name__ == '__main__':
             get(username)
         finally:
             print('Materializing views...')
-            materialize_views()
+            # materialize_views()
     else:
         parser.print_help()
