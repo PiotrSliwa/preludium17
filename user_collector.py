@@ -4,7 +4,7 @@ from datetime import datetime
 
 from snscrape.modules import twitter
 
-from database import get_local_database
+from database import get_local_database, materialize_views
 
 
 def log(msg):
@@ -17,7 +17,7 @@ class TweetCollection:
         self.username = username
         self.processed_tweet_ids = set()
         self.db = get_local_database()
-        self.db_collection = self.db.test_tweets
+        self.db_collection = self.db.tweets
 
     def save(self, tweet):
         doc = {**tweet, '_id': tweet['id']}
@@ -40,22 +40,22 @@ def scrape_hashtags(string):
 
 def normalize_tweet(tweet):
     return {
-        "_id": tweet.id,
-        "username": tweet.username,
-        "to": None,
-        "text": tweet.content,
+        "_id": str(tweet.id),
+        "username": tweet.user.username.strip(),
+        "to": '',
+        "text": tweet.content.strip(),
         "retweets": tweet.retweetCount,
         "favorites": tweet.likeCount,
         "replies": tweet.replyCount,
-        "id": tweet.id,
-        "permalink": tweet.url,
-        "author_id": None,
+        "id": str(tweet.id),
+        "permalink": tweet.url.strip(),
+        "author_id": '',
         "date": tweet.date,
         "formatted_date": tweet.date.isoformat(),
-        "hashtags": ' '.join(scrape_hashtags(tweet.content)),
-        "mentions": ' '.join(list(map(lambda x: '@' + x.username, tweet.mentionedUsers))) if tweet.mentionedUsers is not None else '',
-        "geo": None,
-        "urls": ' '.join(tweet.outlinks)
+        "hashtags": (' '.join(scrape_hashtags(tweet.content.strip()))).strip(),
+        "mentions": (' '.join(list(map(lambda x: '@' + x.username, tweet.mentionedUsers))) if tweet.mentionedUsers is not None else '').strip(),
+        "geo": '',
+        "urls": (' '.join(tweet.outlinks)).strip()
     }
 
 
@@ -75,7 +75,7 @@ def get_ignored_users():
 
 def most_popular_referenced_users():
     db = get_local_database()
-    candidates = db.reference_popularity.find({'_id': {'$regex': '^@'}}).sort('popularity', -1)
+    candidates = db.materialized_reference_popularity.find({'_id': {'$regex': '^@'}}).sort('popularity', -1)
     ignored_users = get_ignored_users()
     tweets = db.tweets
     for candidate in candidates:
@@ -117,6 +117,6 @@ if __name__ == '__main__':
             get(username)
         finally:
             print('Materializing views...')
-            # materialize_views()
+            materialize_views()
     else:
         parser.print_help()
