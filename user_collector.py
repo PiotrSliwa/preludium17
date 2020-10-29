@@ -27,6 +27,8 @@ class TweetCollection:
         previous_len = len(self.processed_tweet_ids)
         for tweet in tweets:
             self.processed_tweet_ids.add(tweet['id'])
+            if tweet['username'] != self.username:
+                print(f"Saving username {tweet['username']} while the collection is for {self.username}. Probably it is an alias. Add {self.username}to .usercollectorignore to mark it as done.")
             self.save(tweet)
         current_len = len(self.processed_tweet_ids)
         if previous_len == current_len:
@@ -40,7 +42,6 @@ def scrape_hashtags(string):
 
 def normalize_tweet(tweet):
     return {
-        "_id": str(tweet.id),
         "username": tweet.user.username.strip(),
         "to": '',
         "text": tweet.content.strip(),
