@@ -28,7 +28,8 @@ class TweetCollection:
         for tweet in tweets:
             self.processed_tweet_ids.add(tweet['id'])
             if tweet['username'] != self.username:
-                print(f"Saving username {tweet['username']} while the collection is for {self.username}. Probably it is an alias. Add {self.username}to .usercollectorignore to mark it as done.")
+                print(
+                    f"Saving username {tweet['username']} while the collection is for {self.username}. Probably it is an alias. Add {self.username}to .usercollectorignore to mark it as done.")
             self.save(tweet)
         current_len = len(self.processed_tweet_ids)
         if previous_len == current_len:
@@ -54,7 +55,8 @@ def normalize_tweet(tweet):
         "date": tweet.date,
         "formatted_date": tweet.date.isoformat(),
         "hashtags": (' '.join(scrape_hashtags(tweet.content.strip()))).strip(),
-        "mentions": (' '.join(list(map(lambda x: '@' + x.username, tweet.mentionedUsers))) if tweet.mentionedUsers is not None else '').strip(),
+        "mentions": (' '.join(list(map(lambda x: '@' + x.username,
+                                       tweet.mentionedUsers))) if tweet.mentionedUsers is not None else '').strip(),
         "geo": '',
         "urls": (' '.join(tweet.outlinks)).strip()
     }
@@ -74,18 +76,23 @@ def get_ignored_users():
         return list(map(str.strip, f.readlines()))
 
 
+def get_current_users(db):
+    aggregated = db.tweets.aggregate([{'$group': {'_id': '$username'}}])
+    return list(map(lambda x: x['_id'], aggregated))
+
+
 def most_popular_referenced_users():
     db = get_local_database()
     candidates = db.materialized_reference_popularity.find({'_id': {'$regex': '^@'}}).sort('popularity', -1)
     ignored_users = get_ignored_users()
-    tweets = db.tweets
+    current_users = get_current_users(db)
+    start = datetime.now()
     for candidate in candidates:
         username = candidate['_id'].replace('@', '')
-        if username in ignored_users:
+        if username in ignored_users or username in current_users:
             continue
-        tweet = tweets.find_one({'username': username})
-        if tweet is None:
-            yield username
+        print(f'Yielded a candidate in {datetime.now() - start}')
+        yield username
 
 
 def get(username):
@@ -118,6 +125,8 @@ if __name__ == '__main__':
             get(username)
         finally:
             print('Materializing views...')
+            start = datetime.now()
             materialize_views()
+            print(f'Finished materializing in {datetime.now() - start}')
     else:
         parser.print_help()
