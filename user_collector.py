@@ -82,12 +82,12 @@ def get_current_users(db):
 
 
 def most_popular_referenced_users():
+    start = datetime.now()
     db = get_local_database()
     candidates = db.materialized_reference_popularity.find({'_id': {'$regex': '^@'}}).sort('popularity', -1)
     ignored_users = get_ignored_users()
     current_users = get_current_users(db)
     print(f'Info: there are {len(current_users)} current users.')
-    start = datetime.now()
     for candidate in candidates:
         username = candidate['_id'].replace('@', '')
         if username in ignored_users or username in current_users:
