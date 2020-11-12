@@ -1,10 +1,12 @@
 #%%
+from math import floor
 
-from sklearn import svm
-from sklearn.model_selection import cross_val_score
+from sklearn import svm, tree
+from sklearn.model_selection import cross_val_score, cross_validate
 
 from database import get_local_database, get_reference_flows_by_focal
 from vectors import FeatureVectors, CutToLastReferenceFeatureVectorsFactory
+from pprint import pprint
 
 
 def get_scoped_focals(db, reference_id):
@@ -30,6 +32,11 @@ for reference_id in reference_ids:
         X.append(vector.toarray()[0])
         y.append(1 if focal in scoped_focals else 0)
 
-    clf = svm.SVC()
-    scores = cross_val_score(clf, X, y, cv=3, scoring='accuracy')
-    print(scores)
+    clf = tree.DecisionTreeClassifier()
+
+    scoring = {'acc': 'accuracy',
+               'f1': 'f1'}
+    scores = cross_validate(clf, X, y, scoring=scoring, cv=5)
+    pprint(scores)
+    print(f'acc: mean {scores["test_acc"].mean()}, std {scores["test_acc"].std()}')
+    print(f'f1: mean {scores["test_f1"].mean()}, std {scores["test_f1"].std()}')
