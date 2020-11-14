@@ -4,7 +4,7 @@ from datetime import datetime
 
 from snscrape.modules import twitter
 
-from database import get_local_database, materialize_views
+from database import get_local_database, materialize_views, get_current_users
 
 
 def log(msg):
@@ -74,11 +74,6 @@ def collect(username):
 def get_ignored_users():
     with open('.usercollectorignore') as f:
         return list(map(str.strip, f.readlines()))
-
-
-def get_current_users(db):
-    aggregated = db.tweets.aggregate([{'$group': {'_id': '$username'}}])
-    return list(map(lambda x: x['_id'], aggregated))
 
 
 def most_popular_referenced_users():

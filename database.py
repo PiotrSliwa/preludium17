@@ -117,6 +117,11 @@ def get_reference_flows_by_focal(db):
     return reference_flows
 
 
+def get_current_users(db):
+    aggregated = db.tweets.aggregate([{'$group': {'_id': '$username'}}])
+    return list(map(lambda x: x['_id'], aggregated))
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Manage the database.')
     parser.add_argument('action', nargs=1, help='materialize (materialized all views dependent on tweets)')
