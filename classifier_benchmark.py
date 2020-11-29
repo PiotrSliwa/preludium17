@@ -39,20 +39,33 @@ def get_dataset(db, reference_id, feature_intensity_model):
 
 
 db = get_local_database()
-reference_ids = get_balanced_reference_ids(db)
+reference_ids = get_balanced_reference_ids(db, range=2)
 reference_flows_by_focal = get_reference_flows_by_focal(db)
 temporal_intensities_model = FeatureVectors.TemporalIntensitiesModel(reference_flows_by_focal)
-feature_intensity_models = [FeatureVectors.StaticFeatureIntensitiesModel.count_occurrences, temporal_intensities_model.linear_fading_summing]
-clf_names = [RandomForestClassifier, tree.DecisionTreeClassifier]
+feature_intensity_models = [FeatureVectors.StaticFeatureIntensitiesModel.mere_occurrence,
+                            FeatureVectors.StaticFeatureIntensitiesModel.count_occurrences,
+                            temporal_intensities_model.linear_fading_summing]
+clf_names = [RandomForestClassifier,
+             tree.DecisionTreeClassifier]
 scoring = {'acc': 'accuracy',
            'f1': 'f1'}
+db.classifier_benchmarks.drop()
 for reference_id in reference_ids:
     for feature_intensity_model in feature_intensity_models:
         for clf_name in clf_names:
-            print(f'*** {reference_id} / {feature_intensity_model.__name__} / {clf_name.__name__}')
+            print(f'\n*** {reference_id} / {feature_intensity_model.__name__} / {clf_name.__name__}')
             (X, y) = get_dataset(db, reference_id, feature_intensity_model)
             clf = clf_name()
             scores = cross_validate(clf, X, y, scoring=scoring, cv=5)
             pprint(scores)
+            db.classifier_benchmarks.insert_one({
+                'reference_id': reference_id,
+                'feature_intensity_model': feature_intensity_model.__name__,
+                'clf_name': clf_name.__name__,
+                'test_acc_mean': scores["test_acc"].mean(),
+                'test_acc_std': scores["test_acc"].std(),
+                'test_f1_mean': scores["test_f1"].mean(),
+                'test_f1_std': scores["test_f1"].std()
+            })
             print(f'acc: mean {scores["test_acc"].mean()}, std {scores["test_acc"].std()}')
             print(f'f1: mean {scores["test_f1"].mean()}, std {scores["test_f1"].std()}')
