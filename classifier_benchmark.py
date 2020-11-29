@@ -45,23 +45,23 @@ temporal_intensities_model = FeatureVectors.TemporalIntensitiesModel(reference_f
 feature_intensity_models = [FeatureVectors.StaticFeatureIntensitiesModel.mere_occurrence,
                             FeatureVectors.StaticFeatureIntensitiesModel.count_occurrences,
                             temporal_intensities_model.linear_fading_summing]
-clf_names = [RandomForestClassifier,
+clf_inits = [RandomForestClassifier,
              tree.DecisionTreeClassifier]
 scoring = {'acc': 'accuracy',
            'f1': 'f1'}
 db.classifier_benchmarks.drop()
 for reference_id in reference_ids:
     for feature_intensity_model in feature_intensity_models:
-        for clf_name in clf_names:
-            print(f'\n*** {reference_id} / {feature_intensity_model.__name__} / {clf_name.__name__}')
+        for clf_init in clf_inits:
+            print(f'\n*** {reference_id} / {feature_intensity_model.__name__} / {clf_init.__name__}')
             (X, y) = get_dataset(db, reference_id, feature_intensity_model)
-            clf = clf_name()
+            clf = clf_init()
             scores = cross_validate(clf, X, y, scoring=scoring, cv=5)
             pprint(scores)
             db.classifier_benchmarks.insert_one({
                 'reference_id': reference_id,
                 'feature_intensity_model': feature_intensity_model.__name__,
-                'clf_name': clf_name.__name__,
+                'clf_name': clf_init.__name__,
                 'test_acc_mean': scores["test_acc"].mean(),
                 'test_acc_std': scores["test_acc"].std(),
                 'test_f1_mean': scores["test_f1"].mean(),
