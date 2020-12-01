@@ -1,4 +1,6 @@
 import argparse
+from datetime import datetime
+from typing import List, Dict, TypedDict, NamedTuple
 
 from pymongo import MongoClient
 
@@ -120,6 +122,38 @@ def get_reference_flows_by_focal(db):
 def get_current_users(db):
     aggregated = db.tweets.aggregate([{'$group': {'_id': '$username'}}])
     return list(map(lambda x: x['_id'], aggregated))
+
+
+EntityId = str
+
+
+class Reference(NamedTuple):
+    id: EntityId
+    date: datetime
+
+
+class ReferenceFlow(NamedTuple):
+    focal: EntityId
+    references: List[Reference]
+
+
+class Database:
+    db = get_local_database()
+
+    def __to_reference_flow(self, doc) -> ReferenceFlow:
+        pass
+
+    def get_reference_flows(self) -> List[ReferenceFlow]:
+        docs = self.db.materialized_information_flow.find().sort('date', 1)
+        result: Dict[EntityId, ReferenceFlow] = {}
+        for doc in docs:
+            focal = doc['focal']
+            reference = doc['reference']
+            date = doc['date']
+            reference_flow = result.setdefault(focal, ReferenceFlow(focal=focal, references=[]))
+            reference_flow.references.append(Reference(reference, date))
+            result[focal] = reference_flow
+        return list(result.values())
 
 
 if __name__ == '__main__':
