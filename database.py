@@ -124,36 +124,56 @@ def get_current_users(db):
     return list(map(lambda x: x['_id'], aggregated))
 
 
-EntityId = str
+EntityName = str
 
 
 class Reference(NamedTuple):
-    id: EntityId
+    name: EntityName
     date: datetime
 
 
-class ReferenceFlow(NamedTuple):
-    focal: EntityId
-    references: List[Reference]
+class ReferencePopularity(NamedTuple):
+    name: EntityName
+    popularity: int
+
+
+Timeline = List[Reference]
+
+
+class Focal(NamedTuple):
+    name: EntityName
+    timeline: Timeline
 
 
 class Database:
     db = get_local_database()
 
-    def __to_reference_flow(self, doc) -> ReferenceFlow:
-        pass
+    @staticmethod
+    def __to_reference_popularity(doc) -> ReferencePopularity:
+        return ReferencePopularity(doc['_id'], doc['popularity'])
 
-    def get_reference_flows(self) -> List[ReferenceFlow]:
+    def get_focals(self) -> List[Focal]:
         docs = self.db.materialized_information_flow.find().sort('date', 1)
-        result: Dict[EntityId, ReferenceFlow] = {}
+        result: Dict[EntityName, Focal] = {}
         for doc in docs:
             focal = doc['focal']
             reference = doc['reference']
             date = doc['date']
-            reference_flow = result.setdefault(focal, ReferenceFlow(focal=focal, references=[]))
-            reference_flow.references.append(Reference(reference, date))
+            reference_flow = result.setdefault(focal, Focal(name=focal, timeline=[]))
+            reference_flow.timeline.append(Reference(name=reference, date=date))
             result[focal] = reference_flow
         return list(result.values())
+
+    def get_most_popular_reference(self) -> ReferencePopularity:
+        docs = self.db.materialized_reference_popularity.find().sort('popularity', -1)
+        return self.__to_reference_popularity(next(docs))
+
+    def get_averagely_popular_reference(self, precision=5) -> ReferencePopularity:
+        most_popular = self.get_most_popular_reference()
+        average_popularity = most_popular.popularity / 2
+        doc = self.db.materialized_reference_popularity.find_one(
+            {'popularity': {'$gte': average_popularity - precision, '$lte': average_popularity + precision}})
+        return self.__to_reference_popularity(doc)
 
 
 if __name__ == '__main__':
