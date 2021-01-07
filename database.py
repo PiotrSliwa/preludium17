@@ -1,6 +1,6 @@
 import argparse
 from datetime import datetime
-from typing import List, Dict, TypedDict, NamedTuple
+from typing import List, Dict, NamedTuple, Iterator
 
 from pymongo import MongoClient
 
@@ -168,12 +168,12 @@ class Database:
         docs = self.db.materialized_reference_popularity.find().sort('popularity', -1)
         return self.__to_reference_popularity(next(docs))
 
-    def get_averagely_popular_reference(self, precision=5) -> ReferencePopularity:
+    def get_averagely_popular_references(self, precision=5) -> Iterator[ReferencePopularity]:
         most_popular = self.get_most_popular_reference()
         average_popularity = most_popular.popularity / 2
-        doc = self.db.materialized_reference_popularity.find_one(
+        docs = self.db.materialized_reference_popularity.find(
             {'popularity': {'$gte': average_popularity - precision, '$lte': average_popularity + precision}})
-        return self.__to_reference_popularity(doc)
+        return map(self.__to_reference_popularity, docs)
 
 
 if __name__ == '__main__':
