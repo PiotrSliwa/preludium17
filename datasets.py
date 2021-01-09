@@ -1,5 +1,6 @@
+from dataclasses import dataclass
 from enum import Enum
-from typing import List, Callable, Dict, NamedTuple
+from typing import List, Callable, Dict
 
 from scipy.sparse import csr_matrix
 from sklearn.feature_extraction import DictVectorizer
@@ -39,7 +40,8 @@ class TimelineDataset:
         return self.__y.copy()
 
 
-class SklearnDataset(NamedTuple):
+@dataclass(frozen=True)
+class SklearnDataset:
     X: csr_matrix
     y: List[int]
 

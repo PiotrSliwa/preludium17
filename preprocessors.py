@@ -1,6 +1,6 @@
-from typing import Callable
+from typing import Callable, List
 
-from database import Timeline, EntityName
+from database import Timeline, EntityName, Focal
 from datasets import TimelineDataset, FeatureClass
 from lists import last_index
 
@@ -19,4 +19,11 @@ class EntityPreprocessor:
         filtered_sub_timeline = list(filter(lambda reference: reference.name != self.__entity_name, sub_timeline))
         return TimelineDataset([filtered_sub_timeline], [FeatureClass.POSITIVE])
 
+
+def focals_to_timeline_dataset(focals: List[Focal], preprocessor: Preprocessor) -> TimelineDataset:
+    result = TimelineDataset()
+    for focal in focals:
+        dataset = preprocessor(focal.timeline)
+        result += dataset
+    return result
 

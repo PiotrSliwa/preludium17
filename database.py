@@ -1,6 +1,7 @@
 import argparse
+from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Dict, NamedTuple, Iterator
+from typing import List, Dict, Iterator
 
 from pymongo import MongoClient
 
@@ -127,12 +128,14 @@ def get_current_users(db):
 EntityName = str
 
 
-class Reference(NamedTuple):
+@dataclass(frozen=True)
+class Reference:
     name: EntityName
     date: datetime
 
 
-class ReferencePopularity(NamedTuple):
+@dataclass(frozen=True)
+class ReferencePopularity:
     name: EntityName
     popularity: int
 
@@ -140,7 +143,8 @@ class ReferencePopularity(NamedTuple):
 Timeline = List[Reference]
 
 
-class Focal(NamedTuple):
+@dataclass(frozen=True)
+class Focal:
     name: EntityName
     timeline: Timeline
 
