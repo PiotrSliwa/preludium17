@@ -3,7 +3,7 @@ from datetime import datetime
 from database import Timeline, Reference
 from datasets import FeatureClass
 from dicterizers import counting_dicterizer
-from preprocessors import EntityPreprocessor
+from processors import EntityPreprocessor
 
 now = datetime.now()
 

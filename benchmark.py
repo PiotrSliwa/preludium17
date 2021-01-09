@@ -9,7 +9,7 @@ from sklearn.tree import DecisionTreeClassifier
 from database import Database, Focal, EntityName
 from datasets import timeline_to_sklearn_dataset, Dicterizer
 from dicterizers import counting_dicterizer
-from preprocessors import focals_to_timeline_dataset, filter_and_slice_to_most_recent, TimelineProcessor
+from processors import focals_to_timeline_dataset, filter_and_slice_to_most_recent, TimelineProcessor
 import statistics
 
 
@@ -55,6 +55,10 @@ def main():
     results = benchmark(focals, entity_names, processors=[filter_and_slice_to_most_recent],
                         dicterizers=[counting_dicterizer], clfs=[DecisionTreeClassifier])
     pprint(results)
+    summary_avg = statistics.mean(map(lambda r: r.score_avg, results))
+    summary_std = statistics.mean(map(lambda r: r.score_std, results))
+    print('Summary avg: ' + str(summary_avg))
+    print('Summary std: ' + str(summary_std))
 
 
 if __name__ == '__main__':
