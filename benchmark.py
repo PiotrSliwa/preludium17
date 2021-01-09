@@ -9,43 +9,40 @@ from sklearn.tree import DecisionTreeClassifier
 from database import Database, Focal, EntityName
 from datasets import timeline_to_sklearn_dataset, Dicterizer
 from dicterizers import counting_dicterizer
-from preprocessors import Preprocessor, EntityPreprocessor, focals_to_timeline_dataset
+from preprocessors import focals_to_timeline_dataset, filter_and_slice_to_most_recent, TimelineProcessor
+import statistics
 
 
 @dataclass(frozen=True)
-class BenchmarkResult:
+class EntityBenchmarkResult:
+    entity_name: EntityName
     preprocessor: str
     dicterizer: str
     clf: str
     scores: List[float]
+    score_avg: float
+    score_std: float
 
 
-@dataclass(frozen=True)
-class EntityBenchmarkResult(BenchmarkResult):
-    entity_name: EntityName
-
-    @staticmethod
-    def from_benchmark_result(result: BenchmarkResult, entity_name: EntityName):
-        return EntityBenchmarkResult(preprocessor=result.preprocessor, dicterizer=result.dicterizer, clf=result.clf,
-                                     scores=result.scores, entity_name=entity_name)
-
-
-def benchmark(focals: List[Focal], preprocessors: List[Preprocessor], dicterizers: List[Dicterizer], clfs: List) -> \
-List[BenchmarkResult]:
-    results: List[BenchmarkResult] = []
+def benchmark(focals: List[Focal], entity_names: List[EntityName], processors: List[TimelineProcessor],
+              dicterizers: List[Dicterizer], clfs: List) -> List[EntityBenchmarkResult]:
+    results: List[EntityBenchmarkResult] = []
     i = 1
-    for preprocessor in preprocessors:
-        inputs = list(itertools.product(dicterizers, clfs))
-        for dicterizer, clf in inputs:
-            timeline_dataset = focals_to_timeline_dataset(focals, preprocessor)
-            sklearn_dataset = timeline_to_sklearn_dataset(timeline_dataset, counting_dicterizer)
-            clf = DecisionTreeClassifier()
-            scores = cross_val_score(clf, sklearn_dataset.X, sklearn_dataset.y, cv=3)
-            results.append(BenchmarkResult(preprocessor=preprocessor.__name__,
-                                           dicterizer=dicterizer.__name__,
-                                           clf=str(clf),
-                                           scores=scores))
-            print(f'Benchmark iteration: {i} / {len(inputs) + len(preprocessors)}')
+    timeline_dataset_inputs = list(itertools.product(entity_names, processors))
+    sklearn_dataset_inputs = list(itertools.product(dicterizers, clfs))
+    for entity_name, processor in timeline_dataset_inputs:
+        timeline_dataset = focals_to_timeline_dataset(focals, entity_name, processor)
+        for dicterizer, clf in sklearn_dataset_inputs:
+            sklearn_dataset = timeline_to_sklearn_dataset(timeline_dataset, dicterizer)
+            scores = cross_val_score(clf(), sklearn_dataset.X, sklearn_dataset.y, cv=3)
+            results.append(EntityBenchmarkResult(entity_name=entity_name,
+                                                 preprocessor=processor.__name__,
+                                                 dicterizer=dicterizer.__name__,
+                                                 clf=str(clf),
+                                                 scores=scores,
+                                                 score_avg=statistics.mean(scores),
+                                                 score_std=statistics.stdev(scores)))
+            print(f'Benchmark iteration: {i} / {len(timeline_dataset_inputs) * len(sklearn_dataset_inputs)}')
             i += 1
     return results
 
@@ -54,18 +51,9 @@ def main():
     database = Database()
     focals = database.get_focals()
     references = list(database.get_averagely_popular_references(precision=1))
-    results: List[EntityBenchmarkResult] = []
-    i = 1
-    for reference in references:
-        entity_name = reference.name
-        entity_preprocessor = EntityPreprocessor(entity_name)
-        print(f'Entity {entity_name} ({i} / {len(references)})')
-        result = benchmark(focals,
-                           preprocessors=[entity_preprocessor.filter_and_slice_to_most_recent],
-                           dicterizers=[counting_dicterizer],
-                           clfs=[DecisionTreeClassifier()])
-        results += list(map(lambda r: EntityBenchmarkResult.from_benchmark_result(r, entity_name), result))
-        i += 1
+    entity_names = list(map(lambda r: r.name, references))
+    results = benchmark(focals, entity_names, processors=[filter_and_slice_to_most_recent],
+                        dicterizers=[counting_dicterizer], clfs=[DecisionTreeClassifier])
     pprint(results)
 
 
