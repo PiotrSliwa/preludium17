@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Callable, Dict
+from typing import List, Callable, Dict, Generic, TypeVar
 
 from scipy.sparse import csr_matrix
 from sklearn.feature_extraction import DictVectorizer
@@ -38,6 +38,23 @@ class TimelineDataset:
 
     def feature_classes(self) -> List[FeatureClass]:
         return self.__y.copy()
+
+
+T = TypeVar('T')
+
+
+@dataclass
+class DatasetSplit(Generic[T]):
+    train: List[T]
+    test: List[T]
+
+    def __add__(self, other):
+        train = self.train + other.train
+        test = self.test + other.test
+        return DatasetSplit(train, test)
+
+    def __len__(self):
+        return len(self.train) + len(self.test)
 
 
 @dataclass(frozen=True)

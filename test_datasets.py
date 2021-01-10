@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from database import Reference, Timeline
-from datasets import TimelineDataset, FeatureClass, timeline_to_sklearn_dataset
+from datasets import TimelineDataset, FeatureClass, timeline_to_sklearn_dataset, DatasetSplit
 from dicterizers import counting_dicterizer
 
 now = datetime.now()
@@ -34,3 +34,12 @@ def test_timeline_to_sklearn_dataset():
     sklearn_dataset = timeline_to_sklearn_dataset(timeline_dataset, counting_dicterizer)
     assert np.all(sklearn_dataset.X.toarray() == [2, 1])
     assert sklearn_dataset.y == [1]
+
+
+def test_dataset_split():
+    split_a = DatasetSplit([1], [2, 3])
+    split_b = DatasetSplit([4, 5], [6])
+    split = split_a + split_b
+    assert len(split) == 6
+    assert split.train == [1, 4, 5]
+    assert split.test == [2, 3, 6]
