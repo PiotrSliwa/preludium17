@@ -1,7 +1,7 @@
 import itertools
 from dataclasses import dataclass
 from pprint import pprint
-from typing import List
+from typing import List, Optional
 
 from sklearn.model_selection import cross_val_score
 from sklearn.tree import DecisionTreeClassifier
@@ -16,7 +16,7 @@ import statistics
 @dataclass(frozen=True)
 class EntityBenchmarkResult:
     entity_name: EntityName
-    preprocessor: str
+    processor: str
     dicterizer: str
     clf: str
     scores: List[float]
@@ -34,14 +34,14 @@ def benchmark(focals: List[Focal], entity_names: List[EntityName], processors: L
         timeline_dataset = focals_to_timeline_dataset(focals, entity_name, processor)
         for dicterizer, clf in sklearn_dataset_inputs:
             sklearn_dataset = timeline_to_sklearn_dataset(timeline_dataset, dicterizer)
-            scores = cross_val_score(clf(), sklearn_dataset.X, sklearn_dataset.y, cv=3)
+            scores = cross_val_score(clf(), sklearn_dataset.X, sklearn_dataset.y, cv=sklearn_dataset.splits)
             results.append(EntityBenchmarkResult(entity_name=entity_name,
-                                                 preprocessor=processor.__name__,
+                                                 processor=processor.__name__,
                                                  dicterizer=dicterizer.__name__,
                                                  clf=str(clf),
                                                  scores=scores,
-                                                 score_avg=statistics.mean(scores),
-                                                 score_std=statistics.stdev(scores)))
+                                                 score_avg=statistics.mean(scores) if len(scores) > 1 else scores[0],
+                                                 score_std=statistics.stdev(scores) if len(scores) > 1 else 0))
             print(f'Benchmark iteration: {i} / {len(timeline_dataset_inputs) * len(sklearn_dataset_inputs)}')
             i += 1
     return results

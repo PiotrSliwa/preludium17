@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from database import Reference, Timeline
-from datasets import TimelineDataset, FeatureClass, timeline_to_sklearn_dataset, DatasetSplit
+from datasets import TimelineDataset, FeatureClass, timeline_to_sklearn_dataset
 from dicterizers import counting_dicterizer
 
 now = datetime.now()
@@ -12,34 +12,41 @@ now = datetime.now()
 
 def test_timeline_dataset_init_fail():
     with pytest.raises(Exception) as e:
-        TimelineDataset([], [FeatureClass.POSITIVE])
+        TimelineDataset([], [FeatureClass.POSITIVE], [])
+    with pytest.raises(Exception) as e:
+        TimelineDataset([], [], [True])
+    with pytest.raises(Exception) as e:
+        TimelineDataset([[Reference('Reference', now)]], [], [])
 
 
 def test_timeline_dataset_init():
-    timeline: Timeline = [Reference('Reference', datetime.now())]
-    dataset = TimelineDataset([timeline], [FeatureClass.POSITIVE])
+    timeline: Timeline = [Reference('Reference', now)]
+    dataset = TimelineDataset([timeline], [FeatureClass.POSITIVE], [False])
     assert dataset.feature_dicts(counting_dicterizer) == [{'Reference': 1}]
 
 
 def test_timeline_dataset_add_operator():
-    dataset_a = TimelineDataset([[Reference('Reference_A', datetime.now())]], [FeatureClass.POSITIVE])
-    dataset_b = TimelineDataset([[Reference('Reference_B', datetime.now())]], [FeatureClass.POSITIVE])
+    dataset_a = TimelineDataset([[Reference('Reference_A', now)]], [FeatureClass.POSITIVE], [False])
+    dataset_b = TimelineDataset([[Reference('Reference_B', now)]], [FeatureClass.POSITIVE], [False])
     dataset = dataset_a + dataset_b
     assert dataset.feature_dicts(counting_dicterizer) == [{'Reference_A': 1}, {'Reference_B': 1}]
 
 
 def test_timeline_to_sklearn_dataset():
     timeline: Timeline = [Reference('Reference_A', now), Reference('Reference_A', now), Reference('Reference_B', now)]
-    timeline_dataset = TimelineDataset([timeline], [FeatureClass.POSITIVE])
+    timeline_dataset = TimelineDataset([timeline], [FeatureClass.POSITIVE], [False])
     sklearn_dataset = timeline_to_sklearn_dataset(timeline_dataset, counting_dicterizer)
     assert np.all(sklearn_dataset.X.toarray() == [2, 1])
     assert sklearn_dataset.y == [1]
+    assert len(sklearn_dataset.splits) == 1
+    train_split = sklearn_dataset.splits[0][0]
+    test_split = sklearn_dataset.splits[0][1]
+    assert len(train_split) + len(test_split) == 1
+    assert not any(map(lambda x: x in train_split, test_split))
+    assert not any(map(lambda x: x in test_split, train_split))
 
 
-def test_dataset_split():
-    split_a = DatasetSplit([1], [2, 3])
-    split_b = DatasetSplit([4, 5], [6])
-    split = split_a + split_b
-    assert len(split) == 6
-    assert split.train == [1, 4, 5]
-    assert split.test == [2, 3, 6]
+def test_timeline_dataset_test_indices():
+    timeline: Timeline = [Reference('Reference_A', now)]
+    dataset = TimelineDataset([timeline, timeline, timeline], [FeatureClass.POSITIVE, FeatureClass.POSITIVE, FeatureClass.NEGATIVE], [False, True, True])
+    assert dataset.test_indices() == [1, 2]
