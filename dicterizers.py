@@ -1,4 +1,4 @@
-from database import Timeline
+from timelines import Timeline
 from datasets import FeatureDict
 
 

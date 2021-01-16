@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from database import Timeline, Reference
+from timelines import Timeline, Reference
 from dicterizers import counting_dicterizer
 
 

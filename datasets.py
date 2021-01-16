@@ -5,7 +5,7 @@ from typing import List, Callable, Dict, Iterator, Tuple
 from scipy.sparse import csr_matrix
 from sklearn.feature_extraction import DictVectorizer
 
-from database import Timeline
+from timelines import Timeline
 
 
 class FeatureClass(Enum):

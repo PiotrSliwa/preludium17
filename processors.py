@@ -2,7 +2,8 @@ from dataclasses import dataclass
 from random import random
 from typing import Callable, List
 
-from database import Timeline, EntityName, Focal
+from database import Focal
+from timelines import Timeline, EntityName
 from datasets import TimelineDataset, FeatureClass
 from lists import last_index
 

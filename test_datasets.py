@@ -3,7 +3,7 @@ import numpy as np
 
 import pytest
 
-from database import Reference, Timeline
+from timelines import Timeline, Reference
 from datasets import TimelineDataset, FeatureClass, timeline_to_sklearn_dataset
 from dicterizers import counting_dicterizer
 

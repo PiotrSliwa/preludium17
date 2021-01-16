@@ -1,9 +1,10 @@
 import argparse
 from dataclasses import dataclass
-from datetime import datetime
 from typing import List, Dict, Iterator
 
 from pymongo import MongoClient
+
+from timelines import Timeline, EntityName, Reference
 
 
 def get_local_database():
@@ -125,22 +126,10 @@ def get_current_users(db):
     return list(map(lambda x: x['_id'], aggregated))
 
 
-EntityName = str
-
-
-@dataclass(frozen=True)
-class Reference:
-    name: EntityName
-    date: datetime
-
-
 @dataclass(frozen=True)
 class ReferencePopularity:
     name: EntityName
     popularity: int
-
-
-Timeline = List[Reference]
 
 
 @dataclass(frozen=True)

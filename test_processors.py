@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from database import Timeline, Reference
+from timelines import Timeline, Reference
 from datasets import FeatureClass
 from dicterizers import counting_dicterizer
 from processors import FilterAndSliceToMostRecentProcessor
