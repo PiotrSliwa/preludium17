@@ -27,10 +27,10 @@ class TimelineDataset:
     class Metrics:
         positive_classes: int
         negative_classes: int
-        positive_to_negative_ratio: float
+        positive_classes_in_all: float
         training_datasets: int
         test_datasets: int
-        training_to_test_ratio: float
+        test_datasets_in_all: float
 
     def __init__(self, x: List[Timeline] = None, y: List[FeatureClass] = None, test: List[bool] = None):
         self.__x = [] if x is None else x
@@ -62,10 +62,10 @@ class TimelineDataset:
         return TimelineDataset.Metrics(
             positive_classes=positive_classes,
             negative_classes=negative_classes,
-            positive_to_negative_ratio=positive_classes / negative_classes,
+            positive_classes_in_all=positive_classes / (positive_classes + negative_classes),
             training_datasets=training_datasets,
             test_datasets=test_datasets,
-            training_to_test_ratio=training_datasets / test_datasets
+            test_datasets_in_all=test_datasets / (training_datasets + test_datasets)
         )
 
 
