@@ -23,6 +23,15 @@ class TimelineDataset:
     __y: List[FeatureClass]
     __test: List[bool]
 
+    @dataclass
+    class Metrics:
+        positive_classes: int
+        negative_classes: int
+        positive_to_negative_ratio: float
+        training_datasets: int
+        test_datasets: int
+        training_to_test_ratio: float
+
     def __init__(self, x: List[Timeline] = None, y: List[FeatureClass] = None, test: List[bool] = None):
         self.__x = [] if x is None else x
         self.__y = [] if y is None else y
@@ -44,6 +53,20 @@ class TimelineDataset:
 
     def test_indices(self) -> List[int]:
         return [i for i, v in enumerate(self.__test) if v]
+
+    def metrics(self) -> Metrics:
+        positive_classes = sum((int(y == FeatureClass.POSITIVE) for y in self.__y))
+        negative_classes = sum((int(y == FeatureClass.NEGATIVE) for y in self.__y))
+        training_datasets = sum(1 for test in self.__test if not test)
+        test_datasets = sum(1 for test in self.__test if test)
+        return TimelineDataset.Metrics(
+            positive_classes=positive_classes,
+            negative_classes=negative_classes,
+            positive_to_negative_ratio=positive_classes / negative_classes,
+            training_datasets=training_datasets,
+            test_datasets=test_datasets,
+            training_to_test_ratio=training_datasets / test_datasets
+        )
 
 
 TrainIndices = List[int]

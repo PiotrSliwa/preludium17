@@ -48,5 +48,21 @@ def test_timeline_to_sklearn_dataset():
 
 def test_timeline_dataset_test_indices():
     timeline: Timeline = [Reference('Reference_A', now)]
-    dataset = TimelineDataset([timeline, timeline, timeline], [FeatureClass.POSITIVE, FeatureClass.POSITIVE, FeatureClass.NEGATIVE], [False, True, True])
+    dataset = TimelineDataset([timeline, timeline, timeline],
+                              [FeatureClass.POSITIVE, FeatureClass.POSITIVE, FeatureClass.NEGATIVE],
+                              [False, True, True])
     assert dataset.test_indices() == [1, 2]
+
+
+def test_metrics():
+    timeline: Timeline = [Reference('Reference_A', now)]
+    dataset = TimelineDataset([timeline, timeline, timeline],
+                              [FeatureClass.POSITIVE, FeatureClass.POSITIVE, FeatureClass.NEGATIVE],
+                              [False, True, True])
+    metrics = dataset.metrics()
+    assert metrics.training_datasets == 1
+    assert metrics.test_datasets == 2
+    assert metrics.training_to_test_ratio == 1/2
+    assert metrics.positive_classes == 2
+    assert metrics.negative_classes == 1
+    assert metrics.positive_to_negative_ratio == 2/1

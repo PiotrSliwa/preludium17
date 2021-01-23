@@ -8,7 +8,7 @@ from sklearn.model_selection import cross_val_score
 from sklearn.tree import DecisionTreeClassifier
 
 from database import Database, Focal
-from datasets import timeline_to_sklearn_dataset, Dicterizer
+from datasets import timeline_to_sklearn_dataset, Dicterizer, TimelineDataset
 from dicterizers import counting_dicterizer
 from processors import focals_to_timeline_dataset, TimelineProcessor, FilterAndSliceToMostRecentProcessor
 
@@ -21,6 +21,7 @@ class BenchmarkResult:
     scores: List[float]
     score_avg: float
     score_std: float
+    metrics: TimelineDataset.Metrics
 
 
 def benchmark(focals: List[Focal],
@@ -40,7 +41,8 @@ def benchmark(focals: List[Focal],
                                            clf=str(clf),
                                            scores=scores,
                                            score_avg=statistics.mean(scores) if len(scores) > 1 else scores[0],
-                                           score_std=statistics.stdev(scores) if len(scores) > 1 else 0))
+                                           score_std=statistics.stdev(scores) if len(scores) > 1 else 0,
+                                           metrics=timeline_dataset.metrics()))
             print(f'Benchmark iteration: {i} / {len(processors) * len(sklearn_dataset_inputs)}')
             i += 1
     return results
