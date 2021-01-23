@@ -1,4 +1,8 @@
-from timelines import *
+from datetime import datetime
+
+from timelines import timeline_date_span, Reference, Timeline, timeline_filter_out
+
+now = datetime.now()
 
 
 def test_timeline_date_span():
@@ -20,3 +24,8 @@ def test_timeline_date_span_mixed():
                                Reference(name='Reference_B', date=second)])
     assert span == (first, second)
 
+
+def test_timeline_filter_out():
+    timeline: Timeline = [Reference(name='Reference_A', date=now),
+                          Reference(name='Reference_B', date=now)]
+    assert timeline_filter_out(timeline, 'Reference_A') == [Reference(name='Reference_B', date=now)]
