@@ -1,17 +1,7 @@
-from datetime import datetime
-
-import pytest
-
-from timelines import Timeline, Reference
-from datasets import FeatureClass
+from test_utils import now, day_first, day_second, day_third, day_fourth
+from timelines import Reference
 from dicterizers import counting_dicterizer
 from processors import *
-
-now = datetime.now()
-day_first = datetime(2000, 1, 1)
-day_second = datetime(2000, 1, 2)
-day_third = datetime(2000, 1, 3)
-day_fourth = datetime(2000, 1, 4)
 
 
 def test_filter_and_slice_to_most_recent_having_the_reference():

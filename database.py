@@ -4,7 +4,8 @@ from typing import List, Dict, Iterator
 
 from pymongo import MongoClient
 
-from timelines import Timeline, EntityName, Reference
+from focals import Focal
+from timelines import EntityName, Reference
 
 
 def get_local_database():
@@ -130,12 +131,6 @@ def get_current_users(db):
 class ReferencePopularity:
     name: EntityName
     popularity: int
-
-
-@dataclass(frozen=True)
-class Focal:
-    name: EntityName
-    timeline: Timeline
 
 
 class Database:

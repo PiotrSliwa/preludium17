@@ -7,7 +7,8 @@ from typing import List
 from sklearn.model_selection import cross_val_score
 from sklearn.tree import DecisionTreeClassifier
 
-from database import Database, Focal
+from database import Database
+from focals import Focal
 from datasets import timeline_to_sklearn_dataset, Dicterizer, TimelineDataset
 from dicterizers import counting_dicterizer
 from processors import focals_to_timeline_dataset, TimelineProcessor, FilterAndSliceToMostRecentProcessor

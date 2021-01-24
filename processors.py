@@ -3,7 +3,7 @@ from datetime import datetime
 from random import random
 from typing import Callable, List, Optional
 
-from database import Focal
+from focals import Focal
 from timelines import Timeline, EntityName, timeline_filter_out
 from datasets import TimelineDataset, FeatureClass
 from lists import last_index

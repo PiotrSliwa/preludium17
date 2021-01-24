@@ -12,9 +12,10 @@ class Reference:
 
 
 Timeline = List[Reference]
+DateSpan = Tuple[datetime, datetime]
 
 
-def timeline_date_span(timeline: Timeline) -> Tuple[datetime, datetime]:
+def timeline_date_span(timeline: Timeline) -> DateSpan:
     return timeline[0].date, timeline[-1].date
 
 
