@@ -48,3 +48,8 @@ class FocalGroupSpan:
     def distribution(self) -> List[DistributionPoint]:
         return [FocalGroupSpan.DistributionPoint(point.timepoint, len(point.focals)) for point in self.points]
 
+    def highest_distribution_points(self) -> List[DistributionPoint]:
+        distribution = self.distribution()
+        max_focals = max(distribution, key=lambda d: d.focals).focals
+        return [d for d in distribution if d.focals == max_focals]
+
