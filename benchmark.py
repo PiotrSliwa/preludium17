@@ -8,7 +8,7 @@ from sklearn.model_selection import cross_val_score
 from sklearn.tree import DecisionTreeClassifier
 
 from database import Database
-from focals import Focal
+from focals import Focal, FocalGroupSpan
 from datasets import timeline_to_sklearn_dataset, Dicterizer, TimelineDataset
 from dicterizers import counting_dicterizer
 from processors import focals_to_timeline_dataset, TimelineProcessor, FilterAndSliceToMostRecentProcessor
@@ -52,6 +52,8 @@ def benchmark(focals: List[Focal],
 def main():
     database = Database()
     focals = database.get_focals()
+    print('Timeline distribution:')
+    pprint(FocalGroupSpan(focals).distribution())
     references = list(database.get_averagely_popular_references(precision=1))
     entity_names = [r.name for r in references]
     processors = [FilterAndSliceToMostRecentProcessor(entity_name) for entity_name in entity_names]

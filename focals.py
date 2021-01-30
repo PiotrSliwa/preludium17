@@ -1,6 +1,7 @@
 from dataclasses import dataclass
+import time
 from datetime import datetime
-from typing import Iterator, Tuple, Dict, List
+from typing import Iterator, Tuple, Dict, List, Optional, Set
 
 from timelines import EntityName, Timeline, timeline_date_span, DateSpan
 
@@ -11,24 +12,39 @@ class Focal:
     timeline: Timeline
 
 
+@dataclass
 class FocalGroupSpan:
 
     @dataclass(frozen=True)
-    class Boundary:
+    class Point:
         timepoint: datetime
-        focals: List[EntityName]
+        focals: Set[EntityName]
 
-    boundaries: List[Boundary]
+    @dataclass(frozen=True)
+    class DistributionPoint:
+        timepoint: datetime
+        focals: int
+
+    points: List[Point]
 
     def __init__(self, focals: Iterator[Focal]):
-        boundaries: Dict[datetime, List[EntityName]] = {}
-        for focal in focals:
-            span = timeline_date_span(focal.timeline)
-            boundaries.setdefault(span[0], []).append(focal.name)
-            boundaries.setdefault(span[1], []).append(focal.name)
-        self.boundaries = [FocalGroupSpan.Boundary(e[0], e[1]) for e in sorted(boundaries.items())]
+        spans: Dict[EntityName, DateSpan] = {focal.name: timeline_date_span(focal.timeline) for focal in focals}
+        time_points: Set[datetime] = set()
+        for span in spans.values():
+            time_points.add(span[0])
+            time_points.add(span[1])
+        self.points = []
+        for time_point in time_points:
+            timepoint_focals: Set[EntityName] = set()
+            for focal_name, span in spans.items():
+                if span[0] <= time_point <= span[1]:
+                    timepoint_focals.add(focal_name)
+            self.points.append(FocalGroupSpan.Point(time_point, timepoint_focals))
+        self.points.sort(key=lambda p: p.timepoint)
 
     def outer(self) -> DateSpan:
-        return self.boundaries[0].timepoint, self.boundaries[-1].timepoint
+        return self.points[0].timepoint, self.points[-1].timepoint
 
+    def distribution(self) -> List[DistributionPoint]:
+        return [FocalGroupSpan.DistributionPoint(point.timepoint, len(point.focals)) for point in self.points]
 

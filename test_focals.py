@@ -11,8 +11,8 @@ def test_focal_group_span():
                                 Reference('Reference_G', day_fourth)])
     focals = [focal_a, focal_b, focal_c]
     span = FocalGroupSpan(focals)
+    assert span.points == [FocalGroupSpan.Point(day_first, {focal_b.name}),
+                           FocalGroupSpan.Point(day_second, {focal_a.name, focal_b.name, focal_c.name}),
+                           FocalGroupSpan.Point(day_third, {focal_a.name, focal_c.name}),
+                           FocalGroupSpan.Point(day_fourth, {focal_c.name})]
     assert span.outer() == (day_first, day_fourth)
-    assert span.boundaries == [FocalGroupSpan.Boundary(day_first, [focal_b.name]),
-                               FocalGroupSpan.Boundary(day_second, [focal_a.name, focal_b.name, focal_c.name]),
-                               FocalGroupSpan.Boundary(day_third, [focal_a.name]),
-                               FocalGroupSpan.Boundary(day_fourth, [focal_c.name])]

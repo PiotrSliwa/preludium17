@@ -1,4 +1,5 @@
 import argparse
+from datetime import datetime
 from dataclasses import dataclass
 from typing import List, Dict, Iterator
 
@@ -146,7 +147,8 @@ class Database:
         for doc in docs:
             focal = doc['focal']
             reference = doc['reference']
-            date = doc['date']
+            raw_date = doc['date']
+            date = raw_date if type(raw_date) == datetime else datetime.strptime(raw_date, '%Y-%m-%d %H:%M:%S')
             reference_flow = result.setdefault(focal, Focal(name=focal, timeline=[]))
             reference_flow.timeline.append(Reference(name=reference, date=date))
             result[focal] = reference_flow
