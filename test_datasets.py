@@ -56,13 +56,16 @@ def test_timeline_dataset_test_indices():
 
 def test_metrics():
     timeline: Timeline = [Reference('Reference_A', now)]
-    dataset = TimelineDataset([timeline, timeline, timeline],
-                              [FeatureClass.POSITIVE, FeatureClass.POSITIVE, FeatureClass.NEGATIVE],
-                              [False, False, True])
+    dataset = TimelineDataset([timeline, timeline, timeline, timeline],
+                              [FeatureClass.POSITIVE, FeatureClass.POSITIVE, FeatureClass.NEGATIVE, FeatureClass.POSITIVE],
+                              [False, False, True, True])
     metrics = dataset.metrics()
     assert metrics.training_datasets == 2
-    assert metrics.test_datasets == 1
-    assert metrics.test_datasets_in_all == 1/3
-    assert metrics.positive_classes == 2
-    assert metrics.negative_classes == 1
-    assert metrics.positive_classes_in_all == 2/3
+    assert metrics.test_datasets == 2
+    assert metrics.test_to_training_ratio == 1 / 2
+    assert metrics.training_positive_classes == 2
+    assert metrics.training_negative_classes == 0
+    assert metrics.training_class_ratio == 1.0
+    assert metrics.test_positive_classes == 1
+    assert metrics.test_negative_classes == 1
+    assert metrics.test_class_ratio == 0.5

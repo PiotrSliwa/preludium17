@@ -25,12 +25,15 @@ class TimelineDataset:
 
     @dataclass
     class Metrics:
-        positive_classes: int
-        negative_classes: int
-        positive_classes_in_all: float
         training_datasets: int
         test_datasets: int
-        test_datasets_in_all: float
+        test_to_training_ratio: float
+        training_positive_classes: int
+        training_negative_classes: int
+        training_class_ratio: float
+        test_positive_classes: int
+        test_negative_classes: int
+        test_class_ratio: float
 
     def __init__(self, x: List[Timeline] = None, y: List[FeatureClass] = None, test: List[bool] = None):
         self.__x = [] if x is None else x
@@ -55,17 +58,35 @@ class TimelineDataset:
         return [i for i, v in enumerate(self.__test) if v]
 
     def metrics(self) -> Metrics:
-        positive_classes = sum((int(y == FeatureClass.POSITIVE) for y in self.__y))
-        negative_classes = sum((int(y == FeatureClass.NEGATIVE) for y in self.__y))
-        training_datasets = sum(1 for test in self.__test if not test)
-        test_datasets = sum(1 for test in self.__test if test)
+        training_positive_classes = 0
+        test_positive_classes = 0
+        training_negative_classes = 0
+        test_negative_classes = 0
+        training_datasets = 0
+        test_datasets = 0
+        for i, y in enumerate(self.__y):
+            if self.__test[i]:
+                test_datasets += 1
+                if y == FeatureClass.POSITIVE:
+                    test_positive_classes += 1
+                else:
+                    test_negative_classes += 1
+            else:
+                training_datasets += 1
+                if y == FeatureClass.POSITIVE:
+                    training_positive_classes += 1
+                else:
+                    training_negative_classes += 1
         return TimelineDataset.Metrics(
-            positive_classes=positive_classes,
-            negative_classes=negative_classes,
-            positive_classes_in_all=positive_classes / (positive_classes + negative_classes),
             training_datasets=training_datasets,
             test_datasets=test_datasets,
-            test_datasets_in_all=test_datasets / (training_datasets + test_datasets)
+            test_to_training_ratio=test_datasets / (training_datasets + test_datasets),
+            training_positive_classes=training_positive_classes,
+            training_negative_classes=training_negative_classes,
+            training_class_ratio=training_positive_classes / (training_positive_classes + training_negative_classes),
+            test_positive_classes=test_positive_classes,
+            test_negative_classes=test_negative_classes,
+            test_class_ratio=test_positive_classes / (test_positive_classes + test_negative_classes),
         )
 
 
