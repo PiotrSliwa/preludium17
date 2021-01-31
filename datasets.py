@@ -1,3 +1,4 @@
+import random
 from dataclasses import dataclass
 from enum import Enum
 from typing import List, Callable, Dict, Iterator, Tuple
@@ -51,8 +52,11 @@ class TimelineDataset:
     def feature_dicts(self, dicterizer: Dicterizer) -> List[FeatureDict]:
         return list(map(lambda x: dicterizer(x), self.__x))
 
-    def feature_classes(self) -> List[FeatureClass]:
-        return self.__y.copy()
+    def feature_classes(self, shuffle: bool = False) -> List[FeatureClass]:
+        result = self.__y.copy()
+        if shuffle:
+            random.shuffle(result)
+        return result
 
     def test_indices(self) -> List[int]:
         return [i for i, v in enumerate(self.__test) if v]
@@ -102,9 +106,9 @@ class SklearnDataset:
     splits: List[Split]
 
 
-def timeline_to_sklearn_dataset(dataset: TimelineDataset, dicterizer: Dicterizer) -> SklearnDataset:
+def timeline_to_sklearn_dataset(dataset: TimelineDataset, dicterizer: Dicterizer, shuffle_classes: bool = False) -> SklearnDataset:
     feature_dicts = dataset.feature_dicts(dicterizer)
-    feature_classes = dataset.feature_classes()
+    feature_classes = dataset.feature_classes(shuffle_classes)
     vectorizer = DictVectorizer()
     X = vectorizer.fit_transform(feature_dicts)
     y = list(map(lambda x: x.value, feature_classes))

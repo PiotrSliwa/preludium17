@@ -35,7 +35,7 @@ def benchmark(focals: List[Focal],
     for processor in processors:
         timeline_dataset = focals_to_timeline_dataset(focals, processor)
         for dicterizer, clf in sklearn_dataset_inputs:
-            sklearn_dataset = timeline_to_sklearn_dataset(timeline_dataset, dicterizer)
+            sklearn_dataset = timeline_to_sklearn_dataset(timeline_dataset, dicterizer, shuffle_classes=False)
             scores = cross_val_score(clf(), sklearn_dataset.X, sklearn_dataset.y, cv=sklearn_dataset.splits)
             results.append(BenchmarkResult(processor=str(processor),
                                            dicterizer=dicterizer.__name__,
