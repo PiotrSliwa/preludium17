@@ -1,14 +1,17 @@
 from dataclasses import dataclass
 from datetime import datetime
 from random import random
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Dict
 
 from focals import Focal
 from timelines import Timeline, EntityName, timeline_filter_out
 from datasets import TimelineDataset, FeatureClass
 from lists import last_index
 
-TimelineProcessor = Callable[[Timeline], TimelineDataset]
+
+class TimelineProcessor:
+    def __call__(self, timeline: Timeline) -> TimelineDataset: ...
+    def to_dict(self) -> Dict: ...
 
 
 @dataclass
@@ -28,8 +31,8 @@ class FilterAndSliceToMostRecentProcessor(TimelineProcessor):
         filtered_sub_timeline = timeline_filter_out(sub_timeline, self.entity_name)
         return TimelineDataset([filtered_sub_timeline], [FeatureClass.POSITIVE], [self.__flip_coin()])
 
-    def __str__(self):
-        return f'FilterAndSliceToMostRecentProcessor(entity_name={self.entity_name})'
+    def to_dict(self) -> Dict:
+        return {'type': 'FilterAndSliceToMostRecentProcessor', 'entity_name': self.entity_name}
 
 
 @dataclass
@@ -59,8 +62,8 @@ class TimepointProcessor(TimelineProcessor):
         test = [False, True]
         return TimelineDataset(x, y, test)
 
-    def __str__(self):
-        return f'TimepointProcessor(entity_name={self.entity_name},timepoint={self.timepoint})'
+    def to_dict(self) -> Dict:
+        return {'type': 'TimepointProcessor', 'entity_name': self.entity_name, 'timepoint': self.timepoint}
 
 
 def focals_to_timeline_dataset(focals: List[Focal], processor: TimelineProcessor) -> TimelineDataset:

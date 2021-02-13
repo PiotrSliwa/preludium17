@@ -2,7 +2,7 @@ import itertools
 import statistics
 from dataclasses import dataclass
 from pprint import pprint
-from typing import List
+from typing import List, Dict
 
 from sklearn.model_selection import cross_val_score
 from sklearn.tree import DecisionTreeClassifier
@@ -16,9 +16,9 @@ from processors import focals_to_timeline_dataset, TimelineProcessor, FilterAndS
 
 @dataclass(frozen=True)
 class BenchmarkResult:
-    processor: str
+    processor: Dict
     dicterizer: str
-    clf: str
+    classifier: str
     scores: List[float]
     score_avg: float
     score_std: float
@@ -28,18 +28,19 @@ class BenchmarkResult:
 def benchmark(focals: List[Focal],
               processors: List[TimelineProcessor],
               dicterizers: List[Dicterizer],
-              clfs: List) -> List[BenchmarkResult]:
+              classifier_inits: List) -> List[BenchmarkResult]:
     results: List[BenchmarkResult] = []
     i = 1
-    sklearn_dataset_inputs = list(itertools.product(dicterizers, clfs))
+    sklearn_dataset_inputs = list(itertools.product(dicterizers, classifier_inits))
     for processor in processors:
         timeline_dataset = focals_to_timeline_dataset(focals, processor)
-        for dicterizer, clf in sklearn_dataset_inputs:
+        for dicterizer, classifier_init in sklearn_dataset_inputs:
             sklearn_dataset = timeline_to_sklearn_dataset(timeline_dataset, dicterizer, shuffle_classes=False)
-            scores = cross_val_score(clf(), sklearn_dataset.X, sklearn_dataset.y, cv=sklearn_dataset.splits)
-            results.append(BenchmarkResult(processor=str(processor),
+            classifier = classifier_init()
+            scores = cross_val_score(classifier, sklearn_dataset.X, sklearn_dataset.y, cv=sklearn_dataset.splits)
+            results.append(BenchmarkResult(processor=processor.to_dict(),
                                            dicterizer=dicterizer.__name__,
-                                           clf=str(clf),
+                                           classifier=str(classifier),
                                            scores=scores,
                                            score_avg=statistics.mean(scores) if len(scores) > 1 else scores[0],
                                            score_std=statistics.stdev(scores) if len(scores) > 1 else 0,
@@ -59,7 +60,7 @@ def main():
     entity_names = [r.name for r in references]
     processors = [FilterAndSliceToMostRecentProcessor(entity_name) for entity_name in entity_names] + [
         TimepointProcessor(entity_name, highest_distribution_point.timepoint) for entity_name in entity_names]
-    results = benchmark(focals, processors=processors, dicterizers=[counting_dicterizer], clfs=[DecisionTreeClassifier])
+    results = benchmark(focals, processors=processors, dicterizers=[counting_dicterizer], classifier_inits=[DecisionTreeClassifier])
     pprint(results)
     summary_avg = statistics.mean((r.score_avg for r in results))
     summary_std = statistics.mean((r.score_std for r in results))
