@@ -4,7 +4,7 @@ from random import random
 from typing import Callable, List, Optional, Dict
 
 from focals import Focal
-from timelines import Timeline, EntityName, timeline_filter_out
+from timelines import Timeline, EntityName, timeline_filter_out, timeline_split_by_timepoint
 from datasets import TimelineDataset, FeatureClass
 from lists import last_index
 
@@ -40,21 +40,13 @@ class TimepointProcessor(TimelineProcessor):
     entity_name: EntityName
     timepoint: datetime
 
-    def __splitting_index(self, timeline: Timeline) -> Optional[int]:
-        for index, reference in enumerate(timeline):
-            if reference.date >= self.timepoint:
-                return index
-        return None
-
     def __feature_class(self, timeline: Timeline) -> FeatureClass:
         contains = any(self.entity_name == r.name for r in timeline)
         return FeatureClass.POSITIVE if contains else FeatureClass.NEGATIVE
 
     def __call__(self, timeline: Timeline) -> TimelineDataset:
-        index = self.__splitting_index(timeline)
-        training_timeline = timeline[:index]
+        training_timeline, test_timeline = timeline_split_by_timepoint(timeline, self.timepoint)
         training_class = self.__feature_class(training_timeline)
-        test_timeline = timeline[index:]
         test_class = self.__feature_class(test_timeline)
         x = [timeline_filter_out(training_timeline, self.entity_name),
              timeline_filter_out(test_timeline, self.entity_name)]
