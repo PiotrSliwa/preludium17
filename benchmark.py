@@ -11,7 +11,7 @@ from database import Database
 from focals import Focal, FocalGroupSpan
 from datasets import timeline_to_sklearn_dataset, Dicterizer, TimelineDataset
 from dicterizers import counting_dicterizer
-from processors import focals_to_timeline_dataset, TimelineProcessor, FilterAndSliceToMostRecentProcessor, TimepointProcessor
+from processors import focals_to_timeline_dataset, TimelineProcessor, FilterAndSliceToMostRecentProcessor, TimepointProcessor, SlicingProcessor
 
 
 @dataclass(frozen=True)
@@ -58,8 +58,8 @@ def main():
     print(f'Highest distribution point: {highest_distribution_point}')
     references = list(database.get_averagely_popular_references(precision=1))
     entity_names = [r.name for r in references]
-    processors = [FilterAndSliceToMostRecentProcessor(entity_name) for entity_name in entity_names] + [
-        TimepointProcessor(entity_name, highest_distribution_point.timepoint) for entity_name in entity_names]
+    # processors = [FilterAndSliceToMostRecentProcessor(entity_name) for entity_name in entity_names] + [TimepointProcessor(entity_name, highest_distribution_point.timepoint) for entity_name in entity_names] + [SlicingProcessor(entity_name, highest_distribution_point.timepoint) for entity_name in entity_names]
+    processors = [SlicingProcessor(entity_name, highest_distribution_point.timepoint) for entity_name in entity_names]
     results = benchmark(focals, processors=processors, dicterizers=[counting_dicterizer], classifier_inits=[DecisionTreeClassifier])
     pprint(results)
     summary_avg = statistics.mean((r.score_avg for r in results))

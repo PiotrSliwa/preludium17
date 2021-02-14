@@ -6,7 +6,7 @@ from typing import Callable, List, Optional, Dict
 from focals import Focal
 from timelines import Timeline, EntityName, timeline_filter_out, timeline_split_by_timepoint
 from datasets import TimelineDataset, FeatureClass
-from lists import last_index
+from lists import last_index, indexes_of
 
 
 class TimelineProcessor:
@@ -56,6 +56,32 @@ class TimepointProcessor(TimelineProcessor):
 
     def to_dict(self) -> Dict:
         return {'type': 'TimepointProcessor', 'entity_name': self.entity_name, 'timepoint': self.timepoint}
+
+
+@dataclass
+class SlicingProcessor(TimelineProcessor):
+    entity_name: EntityName
+    timepoint: datetime
+
+    def __call__(self, timeline: Timeline) -> TimelineDataset:
+        indexes = indexes_of(timeline, lambda reference: reference.name == self.entity_name)
+        last = 0
+        x: List[Timeline] = []
+        y: List[FeatureClass] = []
+        test: List[bool] = []
+        for current in indexes:
+            x.append(timeline[last:current])
+            y.append(FeatureClass.POSITIVE)
+            test.append(timeline[current].date >= self.timepoint)
+            last = current + 1
+        if last < len(timeline):
+            x.append(timeline[last:])
+            y.append(FeatureClass.NEGATIVE)
+            test.append(timeline[last].date >= self.timepoint)
+        return TimelineDataset(x, y, test)
+
+    def to_dict(self) -> Dict:
+        return {'type': 'TimeBucketProcessor', 'entity_name': self.entity_name, 'timepoint': self.timepoint}
 
 
 def focals_to_timeline_dataset(focals: List[Focal], processor: TimelineProcessor) -> TimelineDataset:

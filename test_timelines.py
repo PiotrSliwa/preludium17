@@ -3,17 +3,17 @@ from timelines import timeline_date_span, Reference, Timeline, timeline_filter_o
 
 
 def test_timeline_date_span():
-    span = timeline_date_span([Reference(name='Reference_A', date=day_first),
-                               Reference(name='Reference_B', date=day_second),
-                               Reference(name='Reference_C', date=day_third)])
-    assert span == (day_first, day_third)
+    span = timeline_date_span([Reference(name='Reference_A', date=day[1]),
+                               Reference(name='Reference_B', date=day[2]),
+                               Reference(name='Reference_C', date=day[3])])
+    assert span == (day[1], day[3])
 
 
 def test_timeline_date_span_mixed():
-    span = timeline_date_span([Reference(name='Reference_A', date=day_first),
-                               Reference(name='Reference_C', date=day_third),
-                               Reference(name='Reference_B', date=day_second)])
-    assert span == (day_first, day_second)
+    span = timeline_date_span([Reference(name='Reference_A', date=day[1]),
+                               Reference(name='Reference_C', date=day[3]),
+                               Reference(name='Reference_B', date=day[2])])
+    assert span == (day[1], day[2])
 
 
 def test_timeline_filter_out():
@@ -23,10 +23,10 @@ def test_timeline_filter_out():
 
 
 def test_timeline_split_by_timepoint():
-    timeline: Timeline = [Reference(name='Reference_A', date=day_first),
-                          Reference(name='Reference_B', date=day_second),
-                          Reference(name='Reference_C', date=day_third)]
-    split = timeline_split_by_timepoint(timeline, day_second)
-    assert split[0] == [Reference(name='Reference_A', date=day_first)]
-    assert split[1] == [Reference(name='Reference_B', date=day_second),
-                        Reference(name='Reference_C', date=day_third)]
+    timeline: Timeline = [Reference(name='Reference_A', date=day[1]),
+                          Reference(name='Reference_B', date=day[2]),
+                          Reference(name='Reference_C', date=day[3])]
+    split = timeline_split_by_timepoint(timeline, day[2])
+    assert split[0] == [Reference(name='Reference_A', date=day[1])]
+    assert split[1] == [Reference(name='Reference_B', date=day[2]),
+                        Reference(name='Reference_C', date=day[3])]
