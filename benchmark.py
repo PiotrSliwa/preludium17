@@ -2,9 +2,10 @@ import itertools
 import json
 import statistics
 from dataclasses import dataclass
-from typing import List, Dict, Callable
+from typing import List, Dict, Callable, Any
 
 from sklearn.model_selection import cross_val_score
+from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeClassifier
 
 from database import Database
@@ -25,13 +26,7 @@ class BenchmarkResult:
     metrics: TimelineDataset.Metrics
 
 
-@dataclass
-class ClassifierFactory:
-    type: Callable
-    init_args: List
-
-    def create(self):
-        return self.type(*self.init_args)
+ClassifierFactory = Callable[[], Any]
 
 
 def benchmark(focals: List[Focal],
@@ -45,7 +40,7 @@ def benchmark(focals: List[Focal],
         timeline_dataset = focals_to_timeline_dataset(focals, processor)
         for dicterizer, classifier_factory in sklearn_dataset_inputs:
             sklearn_dataset = timeline_to_sklearn_dataset(timeline_dataset, dicterizer, shuffle_classes=False)
-            classifier = classifier_factory.create()
+            classifier = classifier_factory()
             scores = cross_val_score(classifier, sklearn_dataset.X, sklearn_dataset.y, cv=sklearn_dataset.splits)
             results.append(BenchmarkResult(processor=processor.to_dict(),
                                            dicterizer=dicterizer.__name__,
@@ -81,6 +76,10 @@ def to_json(object) -> str:
     return json.dumps(object.__dict__, indent=4, default=lambda o: o.__dict__ if hasattr(o, '__dict__') else str(o))
 
 
+def mlp_classifier():
+    return MLPClassifier()
+
+
 def main():
     database = Database()
     focals = database.get_focals()
@@ -92,7 +91,7 @@ def main():
     processors = [FilterAndSliceToMostRecentProcessor('@forzegg'), FilterAndSliceToMostRecentProcessor('#TBT')]
     # processors = [FilterAndSliceToMostRecentProcessor(entity_name) for entity_name in entity_names] + [TimepointProcessor(entity_name, highest_distribution_point.timepoint) for entity_name in entity_names] + [SlicingProcessor(entity_name, highest_distribution_point.timepoint) for entity_name in entity_names]
     dicterizers = [counting_dicterizer]
-    classifier_factories = [ClassifierFactory(DecisionTreeClassifier, [])]
+    classifier_factories = [DecisionTreeClassifier]
     results = benchmark(focals, processors, dicterizers, classifier_factories)
     test_to_training_ratio_delta = 0.3
     class_ratio_delta = 0.3
