@@ -2,17 +2,16 @@ import itertools
 import json
 import statistics
 from dataclasses import dataclass
-from pprint import pprint
-from typing import List, Dict
+from typing import List, Dict, Callable
 
 from sklearn.model_selection import cross_val_score
 from sklearn.tree import DecisionTreeClassifier
 
 from database import Database
-from focals import Focal, FocalGroupSpan
 from datasets import timeline_to_sklearn_dataset, Dicterizer, TimelineDataset
 from dicterizers import counting_dicterizer
-from processors import focals_to_timeline_dataset, TimelineProcessor, FilterAndSliceToMostRecentProcessor, TimepointProcessor, SlicingProcessor
+from focals import Focal, FocalGroupSpan
+from processors import focals_to_timeline_dataset, TimelineProcessor, FilterAndSliceToMostRecentProcessor
 
 
 @dataclass(frozen=True)
@@ -26,18 +25,27 @@ class BenchmarkResult:
     metrics: TimelineDataset.Metrics
 
 
+@dataclass
+class ClassifierFactory:
+    type: Callable
+    init_args: List
+
+    def create(self):
+        return self.type(*self.init_args)
+
+
 def benchmark(focals: List[Focal],
               processors: List[TimelineProcessor],
               dicterizers: List[Dicterizer],
-              classifier_inits: List) -> List[BenchmarkResult]:
+              classifier_factories: List[ClassifierFactory]) -> List[BenchmarkResult]:
     results: List[BenchmarkResult] = []
     i = 1
-    sklearn_dataset_inputs = list(itertools.product(dicterizers, classifier_inits))
+    sklearn_dataset_inputs = list(itertools.product(dicterizers, classifier_factories))
     for processor in processors:
         timeline_dataset = focals_to_timeline_dataset(focals, processor)
-        for dicterizer, classifier_init in sklearn_dataset_inputs:
+        for dicterizer, classifier_factory in sklearn_dataset_inputs:
             sklearn_dataset = timeline_to_sklearn_dataset(timeline_dataset, dicterizer, shuffle_classes=False)
-            classifier = classifier_init()
+            classifier = classifier_factory.create()
             scores = cross_val_score(classifier, sklearn_dataset.X, sklearn_dataset.y, cv=sklearn_dataset.splits)
             results.append(BenchmarkResult(processor=processor.to_dict(),
                                            dicterizer=dicterizer.__name__,
@@ -81,12 +89,11 @@ def main():
     print(f'Highest distribution point: {highest_distribution_point}')
     references = list(database.get_averagely_popular_references(precision=1))
     entity_names = [r.name for r in references]
-    processors = [FilterAndSliceToMostRecentProcessor(entity_name) for entity_name in entity_names]
+    processors = [FilterAndSliceToMostRecentProcessor('@forzegg'), FilterAndSliceToMostRecentProcessor('#TBT')]
     # processors = [FilterAndSliceToMostRecentProcessor(entity_name) for entity_name in entity_names] + [TimepointProcessor(entity_name, highest_distribution_point.timepoint) for entity_name in entity_names] + [SlicingProcessor(entity_name, highest_distribution_point.timepoint) for entity_name in entity_names]
-    results = benchmark(focals,
-                        processors=processors,
-                        dicterizers=[counting_dicterizer],
-                        classifier_inits=[DecisionTreeClassifier])
+    dicterizers = [counting_dicterizer]
+    classifier_factories = [ClassifierFactory(DecisionTreeClassifier, [])]
+    results = benchmark(focals, processors, dicterizers, classifier_factories)
     test_to_training_ratio_delta = 0.3
     class_ratio_delta = 0.3
     filtered_results = filter(results, test_to_training_ratio_delta, class_ratio_delta)
