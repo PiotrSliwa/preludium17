@@ -11,7 +11,6 @@ from lists import last_index, indexes_of
 
 class TimelineProcessor:
     def __call__(self, timeline: Timeline) -> TimelineDataset: ...
-    def to_dict(self) -> Dict: ...
 
 
 @dataclass
@@ -30,9 +29,6 @@ class FilterAndSliceToMostRecentProcessor(TimelineProcessor):
         sub_timeline = timeline[:index]
         filtered_sub_timeline = timeline_filter_out(sub_timeline, self.entity_name)
         return TimelineDataset([filtered_sub_timeline], [FeatureClass.POSITIVE], [self.__flip_coin()])
-
-    def to_dict(self) -> Dict:
-        return {'type': 'FilterAndSliceToMostRecentProcessor', 'entity_name': self.entity_name}
 
 
 @dataclass
@@ -53,9 +49,6 @@ class TimepointProcessor(TimelineProcessor):
         y = [training_class, test_class]
         test = [False, True]
         return TimelineDataset(x, y, test)
-
-    def to_dict(self) -> Dict:
-        return {'type': 'TimepointProcessor', 'entity_name': self.entity_name, 'timepoint': self.timepoint}
 
 
 @dataclass
@@ -79,9 +72,6 @@ class SlicingProcessor(TimelineProcessor):
             y.append(FeatureClass.NEGATIVE)
             test.append(timeline[last].date >= self.timepoint)
         return TimelineDataset(x, y, test)
-
-    def to_dict(self) -> Dict:
-        return {'type': 'SlicingProcessor', 'entity_name': self.entity_name, 'timepoint': self.timepoint}
 
 
 def focals_to_timeline_dataset(focals: List[Focal], processor: TimelineProcessor) -> TimelineDataset:

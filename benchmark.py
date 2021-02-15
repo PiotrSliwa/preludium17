@@ -42,7 +42,7 @@ def benchmark(focals: List[Focal],
             sklearn_dataset = timeline_to_sklearn_dataset(timeline_dataset, dicterizer, shuffle_classes=False)
             classifier = classifier_factory()
             scores = cross_val_score(classifier, sklearn_dataset.X, sklearn_dataset.y, cv=sklearn_dataset.splits)
-            results.append(BenchmarkResult(processor=processor.to_dict(),
+            results.append(BenchmarkResult(processor={**processor.__dict__, 'type': processor.__class__.__name__},
                                            dicterizer=dicterizer.__name__,
                                            classifier=str(classifier),
                                            scores=scores,
@@ -88,7 +88,8 @@ def main():
     print(f'Highest distribution point: {highest_distribution_point}')
     references = list(database.get_averagely_popular_references(precision=1))
     entity_names = [r.name for r in references]
-    processors = [FilterAndSliceToMostRecentProcessor('@forzegg'), FilterAndSliceToMostRecentProcessor('#TBT')]
+    processors = [FilterAndSliceToMostRecentProcessor('@forzegg')]
+    # processors = [FilterAndSliceToMostRecentProcessor('@forzegg'), FilterAndSliceToMostRecentProcessor('#TBT')]
     # processors = [FilterAndSliceToMostRecentProcessor(entity_name) for entity_name in entity_names] + [TimepointProcessor(entity_name, highest_distribution_point.timepoint) for entity_name in entity_names] + [SlicingProcessor(entity_name, highest_distribution_point.timepoint) for entity_name in entity_names]
     dicterizers = [counting_dicterizer]
     classifier_factories = [DecisionTreeClassifier]
@@ -98,10 +99,22 @@ def main():
     filtered_results = filter(results, test_to_training_ratio_delta, class_ratio_delta)
     print(f'Filtered results test_to_training_ratio_delta: {test_to_training_ratio_delta}, class_ratio_delta: {class_ratio_delta}')
     print(to_json(filtered_results))
-    summary_avg = statistics.mean((r.score_avg for r in filtered_results.accepted))
-    summary_std = statistics.mean((r.score_std for r in filtered_results.accepted))
-    print('Summary avg: ' + str(summary_avg))
-    print('Summary std: ' + str(summary_std))
+    if len(filtered_results.accepted) > 0:
+        summary_avg = statistics.mean((r.score_avg for r in filtered_results.accepted))
+        summary_std = statistics.mean((r.score_std for r in filtered_results.accepted))
+        print('Summary avg: ' + str(summary_avg))
+        print('Summary std: ' + str(summary_std))
+        database.save('results_accepted', filtered_results.accepted)
+        print('Accepted results saved.')
+    else:
+        database.drop('results_accepted')
+        print('No accepted results.')
+    if len(filtered_results.off_limits) > 0:
+        database.save('results_off_limits', filtered_results.off_limits)
+        print('Off-limits results saved.')
+    else:
+        database.drop('results_off_limits')
+        print('No off-limits results.')
 
 
 if __name__ == '__main__':

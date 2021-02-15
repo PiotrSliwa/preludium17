@@ -165,6 +165,28 @@ class Database:
             {'popularity': {'$gte': average_popularity - precision, '$lte': average_popularity + precision}})
         return map(self.__to_reference_popularity, docs)
 
+    @staticmethod
+    def __to_dict(obj):
+        if hasattr(obj, '__dict__'):
+            return {i: Database.__to_dict(v) for i, v in obj.__dict__.items()}
+        elif type(obj) is dict:
+            return obj
+        elif hasattr(obj, '__iter__') and type(obj) is not str:
+            return [Database.__to_dict(v) for v in obj]
+        else:
+            return str(obj)
+
+    def save(self, collection_name: str, results: List, clean=True):
+        collection = self.db[collection_name]
+        if clean:
+            collection.drop()
+        dict_results = Database.__to_dict(results)
+        collection.insert_many(dict_results)
+
+    def drop(self, collection_name: str):
+        collection = self.db[collection_name]
+        collection.drop()
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Manage the database.')
