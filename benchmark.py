@@ -1,4 +1,5 @@
 import itertools
+import json
 import statistics
 from dataclasses import dataclass
 from pprint import pprint
@@ -50,6 +51,28 @@ def benchmark(focals: List[Focal],
     return results
 
 
+@dataclass
+class FilteredBenchmarkResults:
+    accepted: List[BenchmarkResult]
+    off_limits: List[BenchmarkResult]
+
+
+def filter(benchmark_results: List[BenchmarkResult], test_to_training_ratio_delta, class_ratio_delta) -> FilteredBenchmarkResults:
+    filtered_results = FilteredBenchmarkResults([], [])
+    for result in benchmark_results:
+        if abs(result.metrics.test_class_ratio - 0.5) <= class_ratio_delta and abs(
+                result.metrics.training_class_ratio - 0.5) <= class_ratio_delta and abs(
+                result.metrics.test_to_training_ratio - 0.5) <= test_to_training_ratio_delta:
+            filtered_results.accepted.append(result)
+        else:
+            filtered_results.off_limits.append(result)
+    return filtered_results
+
+
+def to_json(object) -> str:
+    return json.dumps(object.__dict__, indent=4, default=lambda o: o.__dict__ if hasattr(o, '__dict__') else str(o))
+
+
 def main():
     database = Database()
     focals = database.get_focals()
@@ -58,12 +81,19 @@ def main():
     print(f'Highest distribution point: {highest_distribution_point}')
     references = list(database.get_averagely_popular_references(precision=1))
     entity_names = [r.name for r in references]
+    processors = [FilterAndSliceToMostRecentProcessor(entity_name) for entity_name in entity_names]
     # processors = [FilterAndSliceToMostRecentProcessor(entity_name) for entity_name in entity_names] + [TimepointProcessor(entity_name, highest_distribution_point.timepoint) for entity_name in entity_names] + [SlicingProcessor(entity_name, highest_distribution_point.timepoint) for entity_name in entity_names]
-    processors = [SlicingProcessor(entity_name, highest_distribution_point.timepoint) for entity_name in entity_names]
-    results = benchmark(focals, processors=processors, dicterizers=[counting_dicterizer], classifier_inits=[DecisionTreeClassifier])
-    pprint(results)
-    summary_avg = statistics.mean((r.score_avg for r in results))
-    summary_std = statistics.mean((r.score_std for r in results))
+    results = benchmark(focals,
+                        processors=processors,
+                        dicterizers=[counting_dicterizer],
+                        classifier_inits=[DecisionTreeClassifier])
+    test_to_training_ratio_delta = 0.3
+    class_ratio_delta = 0.3
+    filtered_results = filter(results, test_to_training_ratio_delta, class_ratio_delta)
+    print(f'Filtered results test_to_training_ratio_delta: {test_to_training_ratio_delta}, class_ratio_delta: {class_ratio_delta}')
+    print(to_json(filtered_results))
+    summary_avg = statistics.mean((r.score_avg for r in filtered_results.accepted))
+    summary_std = statistics.mean((r.score_std for r in filtered_results.accepted))
     print('Summary avg: ' + str(summary_avg))
     print('Summary std: ' + str(summary_std))
 

@@ -81,7 +81,7 @@ class SlicingProcessor(TimelineProcessor):
         return TimelineDataset(x, y, test)
 
     def to_dict(self) -> Dict:
-        return {'type': 'TimeBucketProcessor', 'entity_name': self.entity_name, 'timepoint': self.timepoint}
+        return {'type': 'SlicingProcessor', 'entity_name': self.entity_name, 'timepoint': self.timepoint}
 
 
 def focals_to_timeline_dataset(focals: List[Focal], processor: TimelineProcessor) -> TimelineDataset:
