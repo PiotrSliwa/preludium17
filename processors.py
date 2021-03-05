@@ -4,7 +4,7 @@ from random import random
 from typing import Callable, List, Optional, Dict
 
 from focals import Focal
-from timelines import Timeline, EntityName, timeline_filter_out, timeline_split_by_timepoint
+from timelines import Timeline, EntityName, timeline_filter_out, timeline_split_by_timepoint, timeline_date_span, Reference
 from datasets import TimelineDataset, FeatureClass
 from lists import last_index, indexes_of
 
@@ -72,6 +72,44 @@ class SlicingProcessor(TimelineProcessor):
             y.append(FeatureClass.NEGATIVE)
             test.append(timeline[last].date >= self.timepoint)
         return TimelineDataset(x, y, test)
+
+
+@dataclass
+class SlicingProcessorWithLimit(TimelineProcessor):
+    entity_name: EntityName
+    timepoint: datetime
+    limit_seconds: int
+
+    def __call__(self, timeline: Timeline) -> TimelineDataset:
+        x: List[Timeline] = []
+        y: List[FeatureClass] = []
+        test: List[bool] = []
+        bucket: Timeline = []
+        entity_name_hit = False
+        for reference in reversed(timeline):
+            if reference.name == self.entity_name:
+                if entity_name_hit:
+                    x.append(list(reversed(bucket)))
+                    y.append(FeatureClass.POSITIVE if entity_name_hit else FeatureClass.NEGATIVE)
+                    test.append(bucket[0].date >= self.timepoint)
+                bucket = []
+                entity_name_hit = True
+                continue
+            if len(bucket) > 0:
+                date_difference = bucket[-1].date - reference.date
+                if date_difference.total_seconds() >= self.limit_seconds:
+                    x.append(list(reversed(bucket)))
+                    y.append(FeatureClass.POSITIVE if entity_name_hit else FeatureClass.NEGATIVE)
+                    test.append(reference.date >= self.timepoint)
+                    bucket = [reference]
+                    entity_name_hit = False
+            else:
+                bucket.append(reference)
+        if entity_name_hit:
+            x.append(list(reversed(bucket)))
+            y.append(FeatureClass.POSITIVE if entity_name_hit else FeatureClass.NEGATIVE)
+            test.append(bucket[0].date >= self.timepoint)
+        return TimelineDataset(list(reversed(x)), list(reversed(y)), list(reversed(test)))
 
 
 def focals_to_timeline_dataset(focals: List[Focal], processor: TimelineProcessor) -> TimelineDataset:
