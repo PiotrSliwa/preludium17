@@ -2,6 +2,7 @@ import itertools
 import json
 import statistics
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import List, Dict, Callable, Any
 
 from sklearn.model_selection import cross_val_score
@@ -12,7 +13,7 @@ from database import Database
 from datasets import timeline_to_sklearn_dataset, Dicterizer, TimelineDataset
 from dicterizers import counting_dicterizer
 from focals import Focal, FocalGroupSpan
-from processors import focals_to_timeline_dataset, TimelineProcessor, FilterAndSliceToMostRecentProcessor
+from processors import focals_to_timeline_dataset, TimelineProcessor, FilterAndSliceToMostRecentProcessor, WindowingProcessor
 
 
 @dataclass(frozen=True)
@@ -42,13 +43,14 @@ def benchmark(focals: List[Focal],
             sklearn_dataset = timeline_to_sklearn_dataset(timeline_dataset, dicterizer, shuffle_classes=False)
             classifier = classifier_factory()
             scores = cross_val_score(classifier, sklearn_dataset.X, sklearn_dataset.y, cv=sklearn_dataset.splits)
-            results.append(BenchmarkResult(processor={**processor.__dict__, 'type': processor.__class__.__name__},
-                                           dicterizer=dicterizer.__name__,
-                                           classifier=str(classifier),
-                                           scores=scores,
-                                           score_avg=statistics.mean(scores) if len(scores) > 1 else scores[0],
-                                           score_std=statistics.stdev(scores) if len(scores) > 1 else 0,
-                                           metrics=timeline_dataset.metrics()))
+            results.append(
+                BenchmarkResult(processor={**Database.to_dict(processor), 'type': processor.__class__.__name__},
+                                dicterizer=dicterizer.__name__,
+                                classifier=str(classifier),
+                                scores=scores,
+                                score_avg=statistics.mean(scores) if len(scores) > 1 else scores[0],
+                                score_std=statistics.stdev(scores) if len(scores) > 1 else 0,
+                                metrics=timeline_dataset.metrics()))
             print(f'Benchmark iteration: {i} / {len(processors) * len(sklearn_dataset_inputs)}')
             i += 1
     return results
@@ -60,12 +62,11 @@ class FilteredBenchmarkResults:
     off_limits: List[BenchmarkResult]
 
 
-def filter(benchmark_results: List[BenchmarkResult], test_to_training_ratio_delta, class_ratio_delta) -> FilteredBenchmarkResults:
+def filter(benchmark_results: List[BenchmarkResult], test_to_training_min_value,
+           test_class_ratio_max_divergence) -> FilteredBenchmarkResults:
     filtered_results = FilteredBenchmarkResults([], [])
     for result in benchmark_results:
-        if abs(result.metrics.test_class_ratio - 0.5) <= class_ratio_delta and abs(
-                result.metrics.training_class_ratio - 0.5) <= class_ratio_delta and abs(
-                result.metrics.test_to_training_ratio - 0.5) <= test_to_training_ratio_delta:
+        if abs(result.metrics.test_class_ratio - 0.5) <= test_class_ratio_max_divergence and result.metrics.test_to_training_ratio >= test_to_training_min_value:
             filtered_results.accepted.append(result)
         else:
             filtered_results.off_limits.append(result)
@@ -86,18 +87,22 @@ def main():
     focal_group_span = FocalGroupSpan(focals)
     highest_distribution_point = focal_group_span.highest_distribution_points()[0]
     print(f'Highest distribution point: {highest_distribution_point}')
-    references = list(database.get_averagely_popular_references(precision=1))
+    most_popular_references = database.get_most_popular_references()
+    references = [next(most_popular_references) for i in range(500)]
+    # references = list(database.get_averagely_popular_references(precision=15))
     entity_names = [r.name for r in references]
-    processors = [FilterAndSliceToMostRecentProcessor('@forzegg')]
+    processors = [WindowingProcessor(entity_name, highest_distribution_point.timepoint, timedelta(weeks=16)) for
+                  entity_name in entity_names]
     # processors = [FilterAndSliceToMostRecentProcessor('@forzegg'), FilterAndSliceToMostRecentProcessor('#TBT')]
     # processors = [FilterAndSliceToMostRecentProcessor(entity_name) for entity_name in entity_names] + [TimepointProcessor(entity_name, highest_distribution_point.timepoint) for entity_name in entity_names] + [SlicingProcessor(entity_name, highest_distribution_point.timepoint) for entity_name in entity_names]
     dicterizers = [counting_dicterizer]
     classifier_factories = [DecisionTreeClassifier]
     results = benchmark(focals, processors, dicterizers, classifier_factories)
-    test_to_training_ratio_delta = 0.3
-    class_ratio_delta = 0.3
-    filtered_results = filter(results, test_to_training_ratio_delta, class_ratio_delta)
-    print(f'Filtered results test_to_training_ratio_delta: {test_to_training_ratio_delta}, class_ratio_delta: {class_ratio_delta}')
+    test_to_training_min_value = 0.2
+    test_class_ratio_max_divergence = 0.2
+    filtered_results = filter(results, test_to_training_min_value, test_class_ratio_max_divergence)
+    print(
+        f'Filtered results test_to_training_min_value: {test_to_training_min_value}, test_class_ratio_max_divergence: {test_class_ratio_max_divergence}')
     print(to_json(filtered_results))
     if len(filtered_results.accepted) > 0:
         summary_avg = statistics.mean((r.score_avg for r in filtered_results.accepted))

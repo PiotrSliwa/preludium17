@@ -155,8 +155,12 @@ class Database:
         return list(result.values())
 
     def get_most_popular_reference(self) -> ReferencePopularity:
+        docs = self.get_most_popular_references()
+        return next(docs)
+
+    def get_most_popular_references(self) -> Iterator[ReferencePopularity]:
         docs = self.db.materialized_reference_popularity.find().sort('popularity', -1)
-        return self.__to_reference_popularity(next(docs))
+        return (self.__to_reference_popularity(doc) for doc in docs)
 
     def get_averagely_popular_references(self, precision=5) -> Iterator[ReferencePopularity]:
         most_popular = self.get_most_popular_reference()
@@ -166,13 +170,13 @@ class Database:
         return map(self.__to_reference_popularity, docs)
 
     @staticmethod
-    def __to_dict(obj):
+    def to_dict(obj):
         if hasattr(obj, '__dict__'):
-            return {i: Database.__to_dict(v) for i, v in obj.__dict__.items()}
+            return {i: Database.to_dict(v) for i, v in obj.__dict__.items()}
         elif type(obj) is dict:
             return obj
         elif hasattr(obj, '__iter__') and type(obj) is not str:
-            return [Database.__to_dict(v) for v in obj]
+            return [Database.to_dict(v) for v in obj]
         else:
             return str(obj)
 
@@ -180,7 +184,7 @@ class Database:
         collection = self.db[collection_name]
         if clean:
             collection.drop()
-        dict_results = Database.__to_dict(results)
+        dict_results = Database.to_dict(results)
         collection.insert_many(dict_results)
 
     def drop(self, collection_name: str):
