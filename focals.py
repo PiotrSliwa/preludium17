@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-import time
 from datetime import datetime
-from typing import Iterator, Tuple, Dict, List, Optional, Set
+from typing import Iterator, Dict, List, Set
 
 from timelines import EntityName, Timeline, timeline_date_span, DateSpan
 
@@ -12,6 +11,12 @@ class Focal:
     timeline: Timeline
 
 
+@dataclass(frozen=True)
+class DistributionPoint:
+    timepoint: datetime
+    focals: int
+
+
 @dataclass
 class FocalGroupSpan:
 
@@ -19,11 +24,6 @@ class FocalGroupSpan:
     class Point:
         timepoint: datetime
         focals: Set[EntityName]
-
-    @dataclass(frozen=True)
-    class DistributionPoint:
-        timepoint: datetime
-        focals: int
 
     points: List[Point]
 
@@ -46,7 +46,7 @@ class FocalGroupSpan:
         return self.points[0].timepoint, self.points[-1].timepoint
 
     def distribution(self) -> List[DistributionPoint]:
-        return [FocalGroupSpan.DistributionPoint(point.timepoint, len(point.focals)) for point in self.points]
+        return [DistributionPoint(point.timepoint, len(point.focals)) for point in self.points]
 
     def highest_distribution_points(self) -> List[DistributionPoint]:
         distribution = self.distribution()

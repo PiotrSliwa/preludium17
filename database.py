@@ -3,6 +3,7 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import List, Dict, Iterator
 
+import numpy
 from pymongo import MongoClient
 
 from focals import Focal
@@ -177,6 +178,8 @@ class Database:
             return obj
         elif hasattr(obj, '__iter__') and type(obj) is not str:
             return [Database.to_dict(v) for v in obj]
+        elif type(obj) is int or type(obj) is float or type(obj) is str or type(obj) is numpy.float64:
+            return obj
         else:
             return str(obj)
 

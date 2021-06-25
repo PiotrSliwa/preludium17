@@ -90,9 +90,10 @@ def main():
     most_popular_references = database.get_most_popular_references()
     references = [next(most_popular_references) for i in range(500)]
     # references = list(database.get_averagely_popular_references(precision=15))
+    database.drop('research_references')
+    database.save('research_references', references)
     entity_names = [r.name for r in references]
-    processors = [WindowingProcessor(entity_name, highest_distribution_point.timepoint, timedelta(weeks=16)) for
-                  entity_name in entity_names]
+    processors = [WindowingProcessor(entity_name, highest_distribution_point.timepoint, timedelta(weeks=weeks)) for entity_name in entity_names for weeks in (8, 16, 24)]
     # processors = [FilterAndSliceToMostRecentProcessor('@forzegg'), FilterAndSliceToMostRecentProcessor('#TBT')]
     # processors = [FilterAndSliceToMostRecentProcessor(entity_name) for entity_name in entity_names] + [TimepointProcessor(entity_name, highest_distribution_point.timepoint) for entity_name in entity_names] + [SlicingProcessor(entity_name, highest_distribution_point.timepoint) for entity_name in entity_names]
     dicterizers = [counting_dicterizer]
@@ -120,6 +121,8 @@ def main():
     else:
         database.drop('results_off_limits')
         print('No off-limits results.')
+    database.drop('results_all')
+    database.save('results_all', results)
 
 
 if __name__ == '__main__':
