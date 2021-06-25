@@ -1,6 +1,7 @@
 import itertools
 import json
 import statistics
+import time
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import List, Dict, Callable, Any
@@ -40,6 +41,7 @@ def benchmark(focals: List[Focal],
     for processor in processors:
         timeline_dataset = focals_to_timeline_dataset(focals, processor)
         for dicterizer, classifier_factory in sklearn_dataset_inputs:
+            t_start = time.time()
             sklearn_dataset = timeline_to_sklearn_dataset(timeline_dataset, dicterizer, shuffle_classes=False)
             classifier = classifier_factory()
             scores = cross_val_score(classifier, sklearn_dataset.X, sklearn_dataset.y, cv=sklearn_dataset.splits)
@@ -51,7 +53,10 @@ def benchmark(focals: List[Focal],
                                 score_avg=statistics.mean(scores) if len(scores) > 1 else scores[0],
                                 score_std=statistics.stdev(scores) if len(scores) > 1 else 0,
                                 metrics=timeline_dataset.metrics()))
-            print(f'Benchmark iteration: {i} / {len(processors) * len(sklearn_dataset_inputs)}')
+            t_end = time.time()
+            rate = round(t_end - t_start, 2)
+            expected_iterations = len(processors) * len(sklearn_dataset_inputs)
+            print(f'Benchmark iteration: {i} / {expected_iterations} (rate: 1/{rate}, estimated time left: {(expected_iterations - i) * rate / 3600}h')
             i += 1
     return results
 
@@ -88,7 +93,7 @@ def main():
     highest_distribution_point = focal_group_span.highest_distribution_points()[0]
     print(f'Highest distribution point: {highest_distribution_point}')
     most_popular_references = database.get_most_popular_references()
-    references = [next(most_popular_references) for i in range(500)]
+    references = [next(most_popular_references) for i in range(1000)]
     # references = list(database.get_averagely_popular_references(precision=15))
     database.drop('research_references')
     database.save('research_references', references)
